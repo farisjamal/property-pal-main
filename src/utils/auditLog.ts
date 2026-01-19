@@ -349,22 +349,3 @@ export const fetchAuditLogs = async (filters?: {
   }
 };
 
-/**
- * Fetches audit log summary (admin only)
- */
-export const fetchAuditLogSummary = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('audit_log_summary')
-      .select('*')
-      .order('log_date', { ascending: false })
-      .limit(30);
-
-    if (error) throw error;
-
-    return data;
-  } catch (error) {
-    console.error('Error fetching audit log summary:', error);
-    return [];
-  }
-};

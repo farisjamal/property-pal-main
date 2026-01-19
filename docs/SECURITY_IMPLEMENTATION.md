@@ -39,7 +39,6 @@ audit_log (
 - Automatic audit triggers on `tenant`, `property_owner`, and `admin` tables
 - Row Level Security (RLS) policies - only admins can view audit logs
 - Database functions for logging auth events and data access
-- Audit log summary view for reporting (`audit_log_summary` with `security_invoker = true`)
 
 **Utility Functions:** `src/utils/auditLog.ts`
 
@@ -236,9 +235,6 @@ const filtered = await fetchAuditLogs({
   limit: 100
 });
 
-// Fetch summary
-import { fetchAuditLogSummary } from '@/utils/auditLog';
-const summary = await fetchAuditLogSummary();
 ```
 
 ### Common Audit Queries
@@ -264,11 +260,6 @@ SELECT * FROM audit_log
 WHERE action_type = 'DELETE'
 AND severity IN ('WARNING', 'CRITICAL')
 ORDER BY timestamp DESC;
-
--- Daily activity summary
-SELECT * FROM audit_log_summary
-ORDER BY log_date DESC
-LIMIT 30;
 ```
 
 ## 9. Testing Checklist
