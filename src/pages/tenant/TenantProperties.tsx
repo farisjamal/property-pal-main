@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Bed, Bath, Ruler, Calendar, Search, Filter, ImageIcon, Eye, Heart } from "lucide-react";
 import PropertyDetailModal from "@/components/properties/PropertyDetailModal";
+import { logAppointmentCreation } from "@/utils/auditLog";
+
 interface Property {
   property_id: number;
   property_type: string;
@@ -25,7 +27,6 @@ interface Property {
   images: string[] | null;
   property_owner: {
     name: string;
-    contact_no: string | null;
   };
 }
 const TenantProperties = () => {
@@ -81,7 +82,7 @@ const TenantProperties = () => {
         }
       }
 
-      // Fetch available properties
+      // Fetch available properties (excluding owner contact_no as it's encrypted and not needed here)
       const {
         data,
         error
@@ -97,7 +98,7 @@ const TenantProperties = () => {
           availability_status,
           owner_id,
           images,
-          property_owner:owner_id(name, contact_no)
+          property_owner:owner_id(name)
         `).eq("availability_status", "Available").order("created_at", {
         ascending: false
       });
@@ -114,7 +115,6 @@ const TenantProperties = () => {
     }
   };
   const toggleFavorite = async (propertyId: number) => {
-    console.log("tenantId value:", tenantId);
     if (!tenantId) {
       toast({
         title: "Error",
@@ -198,6 +198,7 @@ const TenantProperties = () => {
     setIsBooking(true);
     try {
       const {
+        data: newAppointment,
         error
       } = await supabase.from("appointment").insert({
         appointment_date: bookingData.date,
@@ -206,8 +207,17 @@ const TenantProperties = () => {
         tenant_id: tenantId,
         property_id: selectedProperty.property_id,
         owner_id: selectedProperty.owner_id
-      });
+      }).select('appointment_id').single();
       if (error) throw error;
+
+      // Log appointment creation
+      if (newAppointment) {
+        await logAppointmentCreation(
+          newAppointment.appointment_id.toString(),
+          selectedProperty.property_id.toString()
+        );
+      }
+
       toast({
         title: "Appointment Requested",
         description: "Your viewing appointment is pending approval from the property owner."

@@ -6,8 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { User, Lock, Mail, Phone, Calendar, Save, Loader2, KeyRound, Heart, MapPin, Bed, Bath, DollarSign, Trash2, ImageIcon } from 'lucide-react';
+import { User, Lock, Mail, Phone, Calendar, Save, Loader2, KeyRound, Heart, MapPin, Bed, Bath, Trash2, ImageIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { encryptData, decryptData } from '@/utils/security';
 import { logSensitiveDataAccess, logProfileUpdate } from '@/utils/auditLog';

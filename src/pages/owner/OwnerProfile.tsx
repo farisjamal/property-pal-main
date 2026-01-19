@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { User, Lock, Mail, Phone, Calendar, Save, Loader2, KeyRound } from 'lucide-react';
 import { encryptData, decryptData } from '@/utils/security';
 import { logSensitiveDataAccess, logProfileUpdate } from '@/utils/auditLog';
@@ -35,7 +34,6 @@ const OwnerProfile = () => {
   });
 
   // Password change
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -139,7 +137,6 @@ const OwnerProfile = () => {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       toast({ title: 'Success', description: 'Password changed successfully' });
-      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {

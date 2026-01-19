@@ -5,8 +5,8 @@ import bcrypt from 'bcryptjs';
 
 const ENCRYPTION_SECRET = import.meta.env.VITE_ENCRYPTION_KEY;
 
-if (!import.meta.env.VITE_ENCRYPTION_KEY) {
-    console.warn("Security Warning: VITE_ENCRYPTION_KEY is missing. Using fallback key.");
+if (!ENCRYPTION_SECRET) {
+    throw new Error("FATAL: VITE_ENCRYPTION_KEY is required. Application cannot start without encryption key. Please set VITE_ENCRYPTION_KEY in your .env file.");
 }
 
 /**

@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Building2, Mail, Lock, User, Phone } from 'lucide-react';
 import { z } from 'zod';
 import { encryptData, hashPin } from '@/utils/security';
+import { logLogin, logFailedLogin } from '@/utils/auditLog';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -102,6 +103,9 @@ const Auth = () => {
         throw new Error('User role not found. Please contact support.');
       }
 
+      // Log successful login
+      await logLogin(authData.user.id);
+
       toast({
         title: 'Welcome back!',
         description: 'Login successful.',
@@ -117,6 +121,9 @@ const Auth = () => {
       } else if (error.message?.includes('Invalid login credentials')) {
         message = 'Invalid email or password';
       }
+
+      // Log failed login attempt
+      await logFailedLogin(loginData.email, message);
 
       toast({
         title: 'Login Failed',

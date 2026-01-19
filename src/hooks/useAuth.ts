@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { logLogout } from '@/utils/auditLog';
 
 interface UserProfile {
   roleId: number;
@@ -110,6 +111,10 @@ export const useAuth = () => {
   };
 
   const signOut = async () => {
+    // Log logout before signing out (while we still have user context)
+    if (user?.id) {
+      await logLogout(user.id);
+    }
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);

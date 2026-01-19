@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Calendar, Clock, MapPin, User, Phone, Mail, Check, X } from 'lucide-react';
 import { format } from 'date-fns';
+import { decryptData } from '@/utils/security';
+import { logSensitiveDataAccess, logAppointmentStatusChange } from '@/utils/auditLog';
 
 interface Appointment {
   appointment_id: number;
@@ -17,6 +19,7 @@ interface Appointment {
   status: string;
   created_at: string;
   tenant: {
+    tenant_id: number;
     name: string;
     email: string | null;
     contact_no: string | null;
@@ -61,14 +64,32 @@ const OwnerAppointments = () => {
           appointment_time,
           status,
           created_at,
-          tenant:tenant_id(name, email, contact_no),
+          tenant:tenant_id(tenant_id, name, email, contact_no),
           property:property_id(property_type, location, rental_price)
         `)
         .eq('owner_id', ownerData.owner_id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setAppointments((data as unknown as Appointment[]) || []);
+
+      // Decrypt sensitive tenant contact numbers and log access
+      const decryptedAppointments = (data as unknown as Appointment[])?.map(appointment => {
+        if (appointment.tenant?.contact_no) {
+          const decryptedContactNo = decryptData(appointment.tenant.contact_no);
+          // Log sensitive data access
+          logSensitiveDataAccess('TENANT', appointment.tenant.tenant_id.toString(), ['contact_no']);
+          return {
+            ...appointment,
+            tenant: {
+              ...appointment.tenant,
+              contact_no: decryptedContactNo
+            }
+          };
+        }
+        return appointment;
+      }) || [];
+
+      setAppointments(decryptedAppointments);
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
@@ -81,14 +102,22 @@ const OwnerAppointments = () => {
 
     setIsProcessing(true);
     try {
+      const oldStatus = selectedAppointment.status;
       const newStatus = actionDialog.type === 'approve' ? 'approved' : 'rejected';
-      
+
       const { error } = await supabase
         .from('appointment')
         .update({ status: newStatus })
         .eq('appointment_id', selectedAppointment.appointment_id);
 
       if (error) throw error;
+
+      // Log appointment status change
+      await logAppointmentStatusChange(
+        selectedAppointment.appointment_id.toString(),
+        oldStatus,
+        newStatus
+      );
 
       toast({
         title: 'Success',

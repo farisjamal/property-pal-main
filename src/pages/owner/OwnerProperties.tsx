@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Plus, Edit, Trash2, MapPin, Bed, Bath, Ruler, Image as ImageIcon } from 'lucide-react';
 import PropertyPhotoUpload from '@/components/properties/PropertyPhotoUpload';
+import { logPropertyCreation, logPropertyUpdate, logPropertyDeletion } from '@/utils/auditLog';
 interface Property {
   property_id: number;
   property_type: string;
@@ -126,15 +127,29 @@ const OwnerProperties = () => {
           error
         } = await supabase.from('property').update(propertyData).eq('property_id', editingProperty.property_id);
         if (error) throw error;
+
+        // Log property update
+        const updatedFields = Object.keys(propertyData).filter(key =>
+          propertyData[key as keyof typeof propertyData] !== undefined
+        );
+        await logPropertyUpdate(editingProperty.property_id.toString(), updatedFields);
+
         toast({
           title: 'Success',
           description: 'Property updated successfully'
         });
       } else {
         const {
+          data: newProperty,
           error
-        } = await supabase.from('property').insert(propertyData);
+        } = await supabase.from('property').insert(propertyData).select('property_id').single();
         if (error) throw error;
+
+        // Log property creation
+        if (newProperty) {
+          await logPropertyCreation(newProperty.property_id.toString(), formData.property_type);
+        }
+
         toast({
           title: 'Success',
           description: 'Property added successfully'
@@ -172,10 +187,18 @@ const OwnerProperties = () => {
   const handleDelete = async (propertyId: number) => {
     if (!confirm('Are you sure you want to delete this property?')) return;
     try {
+      // Get property title before deletion for logging
+      const propertyToDelete = properties.find(p => p.property_id === propertyId);
+      const propertyTitle = propertyToDelete?.property_type || 'Unknown';
+
       const {
         error
       } = await supabase.from('property').delete().eq('property_id', propertyId);
       if (error) throw error;
+
+      // Log property deletion
+      await logPropertyDeletion(propertyId.toString(), propertyTitle);
+
       toast({
         title: 'Success',
         description: 'Property deleted successfully'
