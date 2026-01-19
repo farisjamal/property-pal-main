@@ -42,6 +42,7 @@ export interface AuditLogEntry {
 
 /**
  * Logs an audit event to the database
+ * Note: audit_log table is accessed via type assertion as it may not be in generated types
  */
 export const logAuditEvent = async (entry: AuditLogEntry): Promise<void> => {
   try {
@@ -49,7 +50,8 @@ export const logAuditEvent = async (entry: AuditLogEntry): Promise<void> => {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const { error } = await supabase.from('audit_log').insert({
+    // Use type assertion for audit_log table (not in auto-generated types)
+    const { error } = await (supabase.from('audit_log' as any) as any).insert({
       user_id: entry.user_id || user?.id || null,
       user_email: user?.email || null,
       action_type: entry.action_type,
@@ -303,7 +305,27 @@ export const logSecurityEvent = async (
 };
 
 /**
+ * Audit log entry from database
+ */
+export interface AuditLogRecord {
+  id: number;
+  user_id: string | null;
+  user_email: string | null;
+  action_type: ActionType;
+  resource_type: ResourceType;
+  resource_id: string | null;
+  description: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  status: Status;
+  severity: Severity;
+  metadata: Record<string, any> | null;
+  timestamp: string;
+}
+
+/**
  * Fetches audit logs (admin only)
+ * Note: audit_log table is accessed via type assertion as it may not be in generated types
  */
 export const fetchAuditLogs = async (filters?: {
   userId?: string;
@@ -312,10 +334,10 @@ export const fetchAuditLogs = async (filters?: {
   startDate?: Date;
   endDate?: Date;
   limit?: number;
-}) => {
+}): Promise<AuditLogRecord[]> => {
   try {
-    let query = supabase
-      .from('audit_log')
+    // Use type assertion for audit_log table (not in auto-generated types)
+    let query = (supabase.from('audit_log' as any) as any)
       .select('*')
       .order('timestamp', { ascending: false });
 
@@ -342,7 +364,7 @@ export const fetchAuditLogs = async (filters?: {
 
     if (error) throw error;
 
-    return data;
+    return (data as AuditLogRecord[]) || [];
   } catch (error) {
     console.error('Error fetching audit logs:', error);
     return [];
