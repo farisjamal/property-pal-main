@@ -74,24 +74,38 @@ The application implements a three-tier role system:
 ### Project Structure
 
 ```
-src/
-├── components/
-│   ├── auth/           # Authentication guards
-│   ├── chat/           # PropertyChatbot component
-│   ├── landing/        # Public landing page components
-│   ├── layout/         # Role-specific layouts (AdminLayout, OwnerLayout, TenantLayout)
-│   ├── properties/     # Property-related components
-│   └── ui/             # shadcn/ui components
-├── hooks/              # Custom React hooks (useAuth, use-toast, use-mobile)
-├── integrations/
-│   └── supabase/       # Supabase client and auto-generated types
-├── lib/                # Utility libraries (utils.ts for cn() helper)
-├── pages/              # Route components
-│   ├── admin/          # Admin dashboard and management pages
-│   ├── owner/          # Property owner dashboard and pages
-│   └── tenant/         # Tenant dashboard and pages
-├── utils/              # Security utilities (encryption, hashing)
-└── App.tsx             # Router configuration with role-based routes
+property-pal/
+├── docs/                   # Documentation files
+│   ├── AUDIT_VIEW_SECURITY_FIX.md
+│   ├── REGISTRATION_FIX_SUMMARY.md
+│   ├── REGISTRATION_FIX_VERIFICATION.md
+│   ├── SECURITY_IMPLEMENTATION.md
+│   └── supabase_mcp_setup.md
+├── src/
+│   ├── components/
+│   │   ├── auth/           # Authentication guards
+│   │   ├── chat/           # PropertyChatbot component
+│   │   ├── landing/        # Public landing page components
+│   │   ├── layout/         # Role-specific layouts (AdminLayout, OwnerLayout, TenantLayout)
+│   │   ├── properties/     # Property-related components
+│   │   └── ui/             # shadcn/ui components
+│   ├── hooks/              # Custom React hooks (useAuth, use-toast, use-mobile)
+│   ├── integrations/
+│   │   └── supabase/       # Supabase client and auto-generated types
+│   ├── lib/                # Utility libraries (utils.ts for cn() helper)
+│   ├── pages/              # Route components
+│   │   ├── admin/          # Admin dashboard and management pages
+│   │   ├── owner/          # Property owner dashboard and pages
+│   │   └── tenant/         # Tenant dashboard and pages
+│   ├── utils/              # Security utilities (encryption, hashing)
+│   └── App.tsx             # Router configuration with role-based routes
+├── supabase/
+│   ├── migrations/         # Database migrations (applied via Supabase)
+│   └── scripts/            # Utility SQL scripts (manual execution)
+│       ├── COMPLETE_REGISTRATION_FIX.sql
+│       └── DIAGNOSTIC_QUERY.sql
+├── CLAUDE.md               # AI assistant instructions (this file)
+└── README.md               # Project readme
 ```
 
 ### Routing Structure
@@ -277,4 +291,4 @@ const saveProfile = async () => {
 };
 ```
 
-**For detailed security implementation guide, see:** [SECURITY_IMPLEMENTATION.md](SECURITY_IMPLEMENTATION.md)
+**For detailed security implementation guide, see:** [docs/SECURITY_IMPLEMENTATION.md](docs/SECURITY_IMPLEMENTATION.md)
