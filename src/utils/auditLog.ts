@@ -50,10 +50,25 @@ export const logAuditEvent = async (entry: AuditLogEntry): Promise<void> => {
       data: { user },
     } = await supabase.auth.getUser();
 
+    // Get user's role_id from user_roles table
+    let userRoleId: number | null = null;
+    const userId = entry.user_id || user?.id;
+
+    if (userId) {
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      userRoleId = roleData?.role_id || null;
+    }
+
     // Use type assertion for audit_log table (not in auto-generated types)
     const { error } = await (supabase.from('audit_log' as any) as any).insert({
-      user_id: entry.user_id || user?.id || null,
+      user_id: userId || null,
       user_email: user?.email || null,
+      user_role_id: userRoleId, // NOW POPULATED!
       action_type: entry.action_type,
       resource_type: entry.resource_type,
       resource_id: entry.resource_id,
