@@ -38,9 +38,9 @@ Deploy n8n via Docker Compose for AI workflow orchestration, move AES-256 encryp
 
 ### Credential Management
 - User needs to check Supabase dashboard for service role key (may or may not have it)
-- User needs to check if they have an Anthropic API key (may need to create one)
+- User needs to check if they have an Google Gemini API key (may need to create one)
 - Claude's Discretion: .env file management approach. Recommend .env files per project (simplest for FYP).
-- Plan must include step-by-step guides for obtaining Supabase service role key and Anthropic API key
+- Plan must include step-by-step guides for obtaining Supabase service role key and Google Gemini API key
 - n8n credentials vault for storing service role key and API keys (not in workflow JSON)
 - .n8n/ directory must be in .gitignore
 
@@ -61,7 +61,7 @@ Deploy n8n via Docker Compose for AI workflow orchestration, move AES-256 encryp
 - User will demo on own laptop — Docker must be pre-tested and reliable before demo day
 - Include Docker Desktop installation steps in the plan (Windows)
 - Include Supabase dashboard navigation steps for finding service role key
-- Include Anthropic console steps for creating/finding API key
+- Include Google AI Studio steps for creating/finding API key
 
 </specifics>
 

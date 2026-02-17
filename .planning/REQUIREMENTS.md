@@ -3,7 +3,7 @@
 ## AI-Powered Booking (Core)
 
 ### REQ-AI-1: Natural Language Understanding
-Tenant sends natural language message describing property needs. Claude API extracts structured criteria (property type, location, budget, bedrooms, preferred date/time) via tool calling. Supports English, Malay, and code-mixed inputs with 90%+ accuracy on common patterns.
+Tenant sends natural language message describing property needs. Gemini API extracts structured criteria (property type, location, budget, bedrooms, preferred date/time) via tool calling. Supports English, Malay, and code-mixed inputs with 90%+ accuracy on common patterns.
 
 **Acceptance:** Given a message like "Cari apartment 2 bilik dekat PJ bawah RM1500", the system extracts `{type: "Apartment", bedrooms: 2, location: "Petaling Jaya", max_price: 1500}` and returns matching properties.
 
@@ -28,9 +28,9 @@ Chat maintains last 10 messages in conversation history, sent to n8n on each req
 **Acceptance:** After initial search, tenant says "what about in Shah Alam instead?" — system modifies only the location while retaining other criteria (bedrooms, budget).
 
 ### REQ-AI-6: Error Handling & Fallback
-All AI workflow errors return user-friendly messages (never expose internal errors, stack traces, or raw API responses). If Claude API is unavailable, display "AI assistant is temporarily unavailable" with link to manual property browsing. Input validation prevents malformed requests from reaching n8n.
+All AI workflow errors return user-friendly messages (never expose internal errors, stack traces, or raw API responses). If Gemini API is unavailable, display "AI assistant is temporarily unavailable" with link to manual property browsing. Input validation prevents malformed requests from reaching n8n.
 
-**Acceptance:** Claude API timeout → friendly error message within 3 seconds. Invalid date input → clarifying question. n8n workflow crash → graceful degradation with error logged.
+**Acceptance:** Gemini API timeout → friendly error message within 3 seconds. Invalid date input → clarifying question. n8n workflow crash → graceful degradation with error logged.
 
 ## AI-Powered Booking (Differentiators)
 
@@ -66,7 +66,7 @@ n8n workflow extracts Supabase JWT from Authorization header. Decodes payload to
 
 **Acceptance:** Request without JWT → 401. Request with expired JWT → 401. Request with valid owner JWT → 403 (tenant-only). Request with valid tenant JWT → proceeds to workflow.
 
-### REQ-N8N-4: Claude API Integration
+### REQ-N8N-4: Gemini API Integration
 n8n HTTP Request node calls Claude Messages API (`/v1/messages`) with tool definitions (`search_properties`, `book_appointment`). Parses tool_use responses and routes to appropriate Supabase queries. Sends property data back to Claude for natural language formatting (RAG pattern).
 
 **Acceptance:** Claude returns `tool_use` with `search_properties` → n8n queries Supabase → injects results into follow-up Claude call → returns natural language response with property details.
@@ -77,9 +77,9 @@ n8n accesses Supabase via REST API using service role key (bypasses RLS). Querie
 **Acceptance:** n8n can query all properties (cross-user), check any appointment slot availability, and create appointments — all via HTTP Request nodes with proper authentication headers.
 
 ### REQ-N8N-6: Workflow Error Handling
-n8n workflow uses Try-Catch pattern for Claude API calls and Supabase operations. Retries failed HTTP requests (2 attempts, 1-second delay). All errors logged to n8n execution log. Returns user-friendly error response via "Respond to Webhook" node on any failure.
+n8n workflow uses Try-Catch pattern for Gemini API calls and Supabase operations. Retries failed HTTP requests (2 attempts, 1-second delay). All errors logged to n8n execution log. Returns user-friendly error response via "Respond to Webhook" node on any failure.
 
-**Acceptance:** Claude API 500 error → retry once → if still fails → return "I'm having trouble right now, please try again" response. Supabase connection error → return "Service temporarily unavailable" response.
+**Acceptance:** Gemini API 500 error → retry once → if still fails → return "I'm having trouble right now, please try again" response. Supabase connection error → return "Service temporarily unavailable" response.
 
 ## Frontend (Chatbot UI)
 

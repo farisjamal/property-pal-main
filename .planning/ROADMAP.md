@@ -13,7 +13,7 @@ PropertyPal is evolving from a basic property management platform into an AI-pow
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Infrastructure & Security Foundation** - Deploy n8n, secure credentials, fix encryption key exposure
-- [ ] **Phase 2: Core AI Booking Workflow** - Build end-to-end n8n workflow with Claude API and Supabase integration
+- [ ] **Phase 2: Core AI Booking Workflow** - Build end-to-end n8n workflow with Gemini API and Supabase integration
 - [ ] **Phase 3: Frontend Chat Integration** - Connect React chatbot UI to n8n backend with conversation management
 - [ ] **Phase 4: Differentiators & Polish** - Add preference learning, smart follow-ups, bilingual support
 - [ ] **Phase 5: Platform Features** - Admin audit logs, notifications, appointment cancellation
@@ -27,7 +27,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Requirements**: REQ-N8N-1, REQ-SEC-1, REQ-SEC-5
 **Success Criteria** (what must be TRUE):
   1. n8n runs via Docker Compose with PostgreSQL persistence and auto-restart on failure
-  2. Service role key and Claude API key stored securely in n8n credentials vault (never in workflow JSON or git)
+  2. Service role key and Gemini API key stored securely in n8n credentials vault (never in workflow JSON or git)
   3. Encryption key removed from client bundle (VITE_ENCRYPTION_KEY no longer exposed in browser)
   4. Supabase Edge Function handles encrypt/decrypt operations successfully
   5. n8n dashboard accessible with authentication, test workflow executes successfully
@@ -39,7 +39,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Requirements**: REQ-AI-1, REQ-AI-2, REQ-AI-3, REQ-AI-4, REQ-AI-6, REQ-N8N-2, REQ-N8N-3, REQ-N8N-4, REQ-N8N-5, REQ-N8N-6, REQ-SEC-2
 **Success Criteria** (what must be TRUE):
   1. Tenant sends "3BR apartment in KL under RM2000" to webhook and receives matching properties within 5 seconds
-  2. Claude API extracts structured criteria (bedrooms, location, budget) with 90%+ accuracy on test cases
+  2. Gemini API extracts structured criteria (bedrooms, location, budget) with 90%+ accuracy on test cases
   3. Property search queries Supabase and returns top 3-5 ranked matches
   4. Availability checking shows only free time slots (9am-5pm, excludes existing bookings)
   5. Appointment booking creates record atomically with database-level double-booking prevention

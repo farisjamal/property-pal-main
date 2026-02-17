@@ -43,7 +43,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
 - n8n for AI orchestration (chosen by user) — Visual workflows, self-hosted, good LLM integration
-- Claude API for NLU (chosen by user) — Strong reasoning and tool-use for property matching
+- Google Gemini free tier for NLU — Free tier (15 RPM, 1M tokens/day), supports function calling, zero cost
 - Dedicated booking page (not widget) — Full chat interface needs more space than floating widget
 - Fixed business hours (9am-5pm) — Simpler than owner-managed slots, sufficient for FYP demo
 - Server-side encryption via Edge Functions — Fix critical security issue of exposed VITE_ENCRYPTION_KEY

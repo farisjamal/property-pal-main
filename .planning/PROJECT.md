@@ -38,7 +38,7 @@ Tenants can describe what they want in natural language and the AI finds matchin
 - [ ] Automated appointment slot availability checking (business hours 9am-5pm, conflict detection)
 - [ ] AI-driven appointment booking upon tenant selection
 - [ ] n8n workflow integration (self-hosted) as AI orchestration backend
-- [ ] Claude API integration for tenant request understanding
+- [ ] Google Gemini API (free tier) integration for tenant request understanding
 - [ ] n8n webhook endpoint for frontend-to-backend AI communication
 - [ ] Fix: Move encryption to server-side (Supabase Edge Function) to protect encryption key
 - [ ] Fix: Decrypt owner contact number in tenant appointments view
@@ -61,7 +61,8 @@ Tenants can describe what they want in natural language and the AI finds matchin
 - This is a Final Year Project (FYP) for university
 - The panel specifically requested the "AI powered" claim be substantiated with real AI-driven workflows
 - The panel's expectation: tenant prompts requirements, AI finds matching properties and available slots, tenant selects, AI books automatically
-- n8n was chosen as the workflow automation layer to orchestrate Claude API calls and Supabase operations
+- n8n was chosen as the workflow automation layer to orchestrate LLM API calls and Supabase operations
+- **Zero budget** — all services must be free tier or self-hosted
 - Existing codebase has a basic PropertyChatbot widget that does simple property search — this will be replaced/upgraded
 - The `notifications` table exists in the schema but is never populated — needs implementation
 - Appointment time slots are currently hardcoded (7 fixed slots) with no conflict checking
@@ -71,10 +72,10 @@ Tenants can describe what they want in natural language and the AI finds matchin
 
 - **Tech Stack**: React + TypeScript + Vite frontend, Supabase backend (PostgreSQL, Auth, Edge Functions) — established, do not change
 - **AI Backend**: n8n (self-hosted) for workflow orchestration — chosen by user
-- **LLM**: Claude API (Anthropic) for natural language understanding — chosen by user
+- **LLM**: Google Gemini API free tier (Gemini 2.0 Flash) for natural language understanding — zero budget constraint
 - **UI Framework**: shadcn/ui + Tailwind CSS — established, do not change
 - **Timeline**: 2+ months until final presentation
-- **Budget**: FYP project — minimize external service costs, self-hosted where possible
+- **Budget**: Zero — all services must be free tier or self-hosted, no paid APIs
 - **Security**: Encryption key must not be exposed in client bundle (critical fix)
 - **Database**: Supabase PostgreSQL with RLS — all data access must respect existing security model
 
@@ -83,7 +84,7 @@ Tenants can describe what they want in natural language and the AI finds matchin
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | n8n for AI orchestration | Visual workflow builder, self-hosted, good LLM integration | — Pending |
-| Claude API for NLU | Strong reasoning and tool-use capabilities for property matching | — Pending |
+| Google Gemini free tier for NLU | Free tier (15 RPM, 1M tokens/day), supports function calling, zero cost | — Pending |
 | Dedicated booking page (not widget) | Full chat interface needs more space than floating widget | — Pending |
 | Fixed business hours (9am-5pm) | Simpler than owner-managed slots, sufficient for FYP demo | — Pending |
 | Server-side encryption via Edge Functions | Fix critical security issue of exposed VITE_ENCRYPTION_KEY | — Pending |
