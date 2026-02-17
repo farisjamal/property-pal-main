@@ -31,7 +31,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Encryption key removed from client bundle (VITE_ENCRYPTION_KEY no longer exposed in browser)
   4. Supabase Edge Function handles encrypt/decrypt operations successfully
   5. n8n dashboard accessible with authentication, test workflow executes successfully
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 01-01-PLAN.md -- n8n Docker Compose infrastructure with PostgreSQL persistence and credential security
+- [ ] 01-02-PLAN.md -- Server-side encryption migration (Edge Function + frontend update)
 
 ### Phase 2: Core AI Booking Workflow
 **Goal**: Build complete booking flow from natural language input to appointment confirmation via n8n orchestration
@@ -116,7 +119,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Infrastructure & Security Foundation | 0/TBD | Not started | - |
+| 1. Infrastructure & Security Foundation | 0/2 | Planned | - |
 | 2. Core AI Booking Workflow | 0/TBD | Not started | - |
 | 3. Frontend Chat Integration | 0/TBD | Not started | - |
 | 4. Differentiators & Polish | 0/TBD | Not started | - |
