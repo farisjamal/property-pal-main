@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# n8n data (safety measure - actual n8n project is in sibling folder)
+.n8n/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
