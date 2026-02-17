@@ -73,21 +73,23 @@ const OwnerAppointments = () => {
       if (error) throw error;
 
       // Decrypt sensitive tenant contact numbers and log access
-      const decryptedAppointments = (data as unknown as Appointment[])?.map(appointment => {
-        if (appointment.tenant?.contact_no) {
-          const decryptedContactNo = decryptData(appointment.tenant.contact_no);
-          // Log sensitive data access
-          logSensitiveDataAccess('TENANT', appointment.tenant.tenant_id.toString(), ['contact_no']);
-          return {
-            ...appointment,
-            tenant: {
-              ...appointment.tenant,
-              contact_no: decryptedContactNo
-            }
-          };
-        }
-        return appointment;
-      }) || [];
+      const decryptedAppointments = await Promise.all(
+        (data as unknown as Appointment[])?.map(async (appointment) => {
+          if (appointment.tenant?.contact_no) {
+            const decryptedContactNo = await decryptData(appointment.tenant.contact_no);
+            // Log sensitive data access
+            logSensitiveDataAccess('TENANT', appointment.tenant.tenant_id.toString(), ['contact_no']);
+            return {
+              ...appointment,
+              tenant: {
+                ...appointment.tenant,
+                contact_no: decryptedContactNo
+              }
+            };
+          }
+          return appointment;
+        }) || []
+      );
 
       setAppointments(decryptedAppointments);
     } catch (error: any) {

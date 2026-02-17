@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Pencil, Trash2, Search, Home } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { encryptData, decryptData } from '@/utils/security';
+import { encryptData, decryptData, batchDecrypt } from '@/utils/security';
 import { logUserCreation, logUserDeletion, logSensitiveDataAccess } from '@/utils/auditLog';
 
 interface PropertyOwner {
@@ -66,40 +66,41 @@ const AdminPropertyOwners = () => {
       });
 
       // Decrypt sensitive fields for display
-      const ownersWithCounts = (ownersData || []).map(owner => {
-        const accessedFields = [];
-        let decryptedContactNo = owner.contact_no;
-        let decryptedIcNo = owner.ic_no;
+      const ownersWithCounts = await Promise.all(
+        (ownersData || []).map(async (owner) => {
+          const accessedFields = [];
+          let decryptedContactNo = owner.contact_no;
+          let decryptedIcNo = owner.ic_no;
 
-        if (owner.contact_no) {
-          try {
-            decryptedContactNo = decryptData(owner.contact_no);
-            accessedFields.push('contact_no');
-          } catch (e) {
-            console.error('Failed to decrypt contact_no for owner', owner.owner_id);
+          // Batch decrypt both fields
+          if (owner.contact_no || owner.ic_no) {
+            try {
+              const [decContact, decIc] = await batchDecrypt([owner.contact_no, owner.ic_no]);
+              if (owner.contact_no && decContact) {
+                decryptedContactNo = decContact;
+                accessedFields.push('contact_no');
+              }
+              if (owner.ic_no && decIc) {
+                decryptedIcNo = decIc;
+                accessedFields.push('ic_no');
+              }
+            } catch (e) {
+              console.error('Failed to decrypt fields for owner', owner.owner_id);
+            }
           }
-        }
 
-        if (owner.ic_no) {
-          try {
-            decryptedIcNo = decryptData(owner.ic_no);
-            accessedFields.push('ic_no');
-          } catch (e) {
-            console.error('Failed to decrypt ic_no for owner', owner.owner_id);
+          if (accessedFields.length > 0) {
+            logSensitiveDataAccess('OWNER', owner.owner_id.toString(), accessedFields);
           }
-        }
 
-        if (accessedFields.length > 0) {
-          logSensitiveDataAccess('OWNER', owner.owner_id.toString(), accessedFields);
-        }
-
-        return {
-          ...owner,
-          contact_no: decryptedContactNo,
-          ic_no: decryptedIcNo,
+          return {
+            ...owner,
+            contact_no: decryptedContactNo,
+            ic_no: decryptedIcNo,
           propertyCount: propertyCountMap.get(owner.owner_id) || 0,
         };
-      });
+        })
+      );
 
       setOwners(ownersWithCounts);
     } catch (error: any) {
@@ -121,8 +122,8 @@ const AdminPropertyOwners = () => {
       if (editingOwner) {
         // Update existing owner
         // Encrypt sensitive fields before saving
-        const encryptedContactNo = formData.contact_no ? encryptData(formData.contact_no) : null;
-        const encryptedIcNo = formData.ic_no ? encryptData(formData.ic_no) : null;
+        const encryptedContactNo = formData.contact_no ? await encryptData(formData.contact_no) : null;
+        const encryptedIcNo = formData.ic_no ? await encryptData(formData.ic_no) : null;
 
         const { error } = await supabase
           .from('property_owner')
@@ -168,8 +169,8 @@ const AdminPropertyOwners = () => {
         });
 
         // Encrypt sensitive fields before saving
-        const encryptedContactNo = formData.contact_no ? encryptData(formData.contact_no) : null;
-        const encryptedIcNo = formData.ic_no ? encryptData(formData.ic_no) : null;
+        const encryptedContactNo = formData.contact_no ? await encryptData(formData.contact_no) : null;
+        const encryptedIcNo = formData.ic_no ? await encryptData(formData.ic_no) : null;
 
         // Create property owner profile
         const { data: newOwner, error: ownerError } = await supabase

@@ -51,29 +51,31 @@ const AdminUsers = () => {
       if (error) throw error;
 
       // Decrypt sensitive fields for display
-      const decryptedData = (data || []).map(tenant => {
-        // Log sensitive data access for each tenant
-        const accessedFields = [];
-        let decryptedContactNo = tenant.contact_no;
+      const decryptedData = await Promise.all(
+        (data || []).map(async (tenant) => {
+          // Log sensitive data access for each tenant
+          const accessedFields = [];
+          let decryptedContactNo = tenant.contact_no;
 
-        if (tenant.contact_no) {
-          try {
-            decryptedContactNo = decryptData(tenant.contact_no);
-            accessedFields.push('contact_no');
-          } catch (e) {
-            console.error('Failed to decrypt contact_no for tenant', tenant.tenant_id);
+          if (tenant.contact_no) {
+            try {
+              decryptedContactNo = await decryptData(tenant.contact_no);
+              accessedFields.push('contact_no');
+            } catch (e) {
+              console.error('Failed to decrypt contact_no for tenant', tenant.tenant_id);
+            }
           }
-        }
 
-        if (accessedFields.length > 0) {
-          logSensitiveDataAccess('TENANT', tenant.tenant_id.toString(), accessedFields);
-        }
+          if (accessedFields.length > 0) {
+            logSensitiveDataAccess('TENANT', tenant.tenant_id.toString(), accessedFields);
+          }
 
-        return {
-          ...tenant,
-          contact_no: decryptedContactNo,
-        };
-      });
+          return {
+            ...tenant,
+            contact_no: decryptedContactNo,
+          };
+        })
+      );
 
       setTenants(decryptedData);
     } catch (error: any) {
@@ -95,7 +97,7 @@ const AdminUsers = () => {
       if (editingTenant) {
         // Update existing tenant
         // Encrypt contact number before saving
-        const encryptedContactNo = formData.contact_no ? encryptData(formData.contact_no) : null;
+        const encryptedContactNo = formData.contact_no ? await encryptData(formData.contact_no) : null;
 
         const { error } = await supabase
           .from('tenant')
@@ -140,7 +142,7 @@ const AdminUsers = () => {
         });
 
         // Encrypt contact number before saving
-        const encryptedContactNo = formData.contact_no ? encryptData(formData.contact_no) : null;
+        const encryptedContactNo = formData.contact_no ? await encryptData(formData.contact_no) : null;
 
         // Create tenant profile
         const { data: newTenant, error: tenantError } = await supabase

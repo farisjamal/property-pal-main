@@ -146,7 +146,7 @@ const Auth = () => {
 
       // ENCRYPTION DEMO: Encrypt the contact number
       const encryptedContact = validated.contactNo
-        ? encryptData(validated.contactNo)
+        ? await encryptData(validated.contactNo)
         : null;
 
       // HASHING DEMO: Hash the security PIN

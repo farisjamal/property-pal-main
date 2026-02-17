@@ -1,36 +1,64 @@
-import CryptoJS from 'crypto-js';
+import { supabase } from '@/integrations/supabase/client';
 import bcrypt from 'bcryptjs';
 
-
-
-const ENCRYPTION_SECRET = import.meta.env.VITE_ENCRYPTION_KEY;
-
-if (!ENCRYPTION_SECRET) {
-    throw new Error("FATAL: VITE_ENCRYPTION_KEY is required. Application cannot start without encryption key. Please set VITE_ENCRYPTION_KEY in your .env file.");
-}
-
 /**
- * Encrypts sensitive data using AES (Advanced Encryption Standard).
- * This ensures that even if the database is leaked, the data remains unreadable.
+ * Encrypts sensitive data via server-side Edge Function (AES-256-GCM).
+ * The encryption key never leaves the server.
  */
-export const encryptData = (text: string): string => {
-    if (!text) return '';
-    return CryptoJS.AES.encrypt(text, ENCRYPTION_SECRET).toString();
+export const encryptData = async (text: string): Promise<string> => {
+  if (!text) return '';
+  const { data, error } = await supabase.functions.invoke('crypto-service', {
+    body: { action: 'encrypt', data: text }
+  });
+  if (error) {
+    console.error('Encryption failed:', error);
+    throw new Error('Failed to encrypt data');
+  }
+  // Return the JSON string containing {ciphertext, iv} for storage in TEXT column
+  return data;
 };
 
 /**
- * Decrypts AES ciphertext back to plain text.
- * Used when authorized users need to view the data.
+ * Decrypts AES-GCM ciphertext via server-side Edge Function.
  */
-export const decryptData = (ciphertext: string): string => {
-    if (!ciphertext) return '';
-    try {
-        const bytes = CryptoJS.AES.decrypt(ciphertext, ENCRYPTION_SECRET);
-        return bytes.toString(CryptoJS.enc.Utf8);
-    } catch (error) {
-        console.error("Decryption failed:", error);
-        return ciphertext; // Return original if failure (or handle gracefull)
+export const decryptData = async (ciphertext: string): Promise<string> => {
+  if (!ciphertext) return '';
+  try {
+    const { data, error } = await supabase.functions.invoke('crypto-service', {
+      body: { action: 'decrypt', data: ciphertext }
+    });
+    if (error) {
+      console.error('Decryption failed:', error);
+      return '';
     }
+    return data?.data || '';
+  } catch (error) {
+    console.error('Decryption failed:', error);
+    return '';
+  }
+};
+
+/**
+ * Batch decrypt multiple ciphertext values in a single request.
+ * More efficient for profile pages that load multiple encrypted fields.
+ */
+export const batchDecrypt = async (ciphertexts: (string | null)[]): Promise<(string | null)[]> => {
+  const items = ciphertexts.map(c => c || null);
+  if (items.every(i => !i)) return items.map(() => null);
+
+  try {
+    const { data, error } = await supabase.functions.invoke('crypto-service', {
+      body: { action: 'batch_decrypt', data: items }
+    });
+    if (error) {
+      console.error('Batch decryption failed:', error);
+      return items.map(() => null);
+    }
+    return data?.data || items.map(() => null);
+  } catch (error) {
+    console.error('Batch decryption failed:', error);
+    return items.map(() => null);
+  }
 };
 
 /**
@@ -39,7 +67,7 @@ export const decryptData = (ciphertext: string): string => {
  * The resulting hash is irreversible.
  */
 export const hashPin = async (pin: string): Promise<string> => {
-    if (!pin) return '';
-    const salt = await bcrypt.genSalt(10);
-    return bcrypt.hash(pin, salt);
+  if (!pin) return '';
+  const salt = await bcrypt.genSalt(10);
+  return bcrypt.hash(pin, salt);
 };

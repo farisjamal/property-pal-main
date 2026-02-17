@@ -15,6 +15,9 @@ dist-ssr
 # n8n data (safety measure - actual n8n project is in sibling folder)
 .n8n/
 
+# Supabase Edge Functions local development secrets
+supabase/functions/.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

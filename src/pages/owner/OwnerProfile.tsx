@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, Lock, Mail, Phone, Calendar, Save, Loader2, KeyRound } from 'lucide-react';
-import { encryptData, decryptData } from '@/utils/security';
+import { encryptData, decryptData, batchDecrypt } from '@/utils/security';
 import { logSensitiveDataAccess, logProfileUpdate } from '@/utils/auditLog';
 
 interface ProfileData {
@@ -53,9 +53,11 @@ const OwnerProfile = () => {
 
       if (error) throw error;
       if (data) {
-        // Decrypt sensitive fields
-        const decryptedContactNo = data.contact_no ? decryptData(data.contact_no) : '';
-        const decryptedIcNo = data.ic_no ? decryptData(data.ic_no) : '';
+        // Decrypt sensitive fields using batch decrypt for efficiency
+        const [decryptedContactNo, decryptedIcNo] = await batchDecrypt([
+          data.contact_no,
+          data.ic_no
+        ]);
 
         // Log sensitive data access
         if (decryptedContactNo || decryptedIcNo) {
@@ -68,10 +70,10 @@ const OwnerProfile = () => {
         setProfile({
           name: data.name || '',
           email: data.email || '',
-          contact_no: decryptedContactNo,
+          contact_no: decryptedContactNo || '',
           date_of_birth: data.date_of_birth || '',
           gender: data.gender || '',
-          ic_no: decryptedIcNo,
+          ic_no: decryptedIcNo || '',
         });
       }
     } catch (error: any) {
@@ -86,8 +88,8 @@ const OwnerProfile = () => {
     setIsSaving(true);
     try {
       // Encrypt sensitive fields before saving
-      const encryptedContactNo = profile.contact_no ? encryptData(profile.contact_no) : null;
-      const encryptedIcNo = profile.ic_no ? encryptData(profile.ic_no) : null;
+      const encryptedContactNo = profile.contact_no ? await encryptData(profile.contact_no) : null;
+      const encryptedIcNo = profile.ic_no ? await encryptData(profile.ic_no) : null;
 
       const { error } = await supabase
         .from('property_owner')
