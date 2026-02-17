@@ -19,7 +19,7 @@ Deploy n8n via Docker Compose for AI workflow orchestration, move AES-256 encryp
 - n8n on default port 5678 (React dev server on 8080, no conflict)
 - docker-compose.yml in a **separate sibling folder** (e.g., `~/FYP/property-pal-n8n/`), not inside the main repo
 - PostgreSQL for n8n's internal database (not SQLite)
-- Basic auth enabled for n8n dashboard access
+- n8n dashboard authentication via built-in owner setup (N8N_BASIC_AUTH_* was deprecated in n8n v0.227+; modern n8n uses owner account created on first visit — more secure)
 - Demo will run on user's own laptop (full control over environment)
 - Timezone: Asia/Kuala_Lumpur
 - Auto-restart: `restart: unless-stopped`
