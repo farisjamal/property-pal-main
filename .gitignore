@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Environment variables
+.env
+.env.*
+!.env.example
+
 # n8n data (safety measure - actual n8n project is in sibling folder)
 .n8n/
 

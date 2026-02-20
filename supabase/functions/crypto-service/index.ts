@@ -11,6 +11,8 @@
  * - batch_decrypt: Decrypts multiple ciphertexts in parallel (max 50)
  */
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
@@ -143,6 +145,31 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Verify JWT - reject unauthenticated requests
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Missing or invalid Authorization header' }),
+        { status: 401, headers: CORS_HEADERS }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired authentication token' }),
+        { status: 401, headers: CORS_HEADERS }
+      );
+    }
+
     // Parse request body
     const body: CryptoRequest = await req.json();
 
