@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Calendar, Clock, MapPin, User, Phone, X } from 'lucide-react';
 import { format } from 'date-fns';
+import { decryptData } from '@/utils/security';
+import { logSensitiveDataAccess } from '@/utils/auditLog';
 interface Appointment {
   appointment_id: number;
   appointment_date: string;
@@ -71,7 +73,26 @@ const TenantAppointments = () => {
         ascending: false
       });
       if (error) throw error;
-      setAppointments(data as unknown as Appointment[] || []);
+
+      // Decrypt owner contact numbers for approved appointments
+      const decryptedAppointments = await Promise.all(
+        ((data as unknown as Appointment[]) || []).map(async (appointment) => {
+          if (appointment.status === 'approved' && appointment.property_owner?.contact_no) {
+            const decryptedContactNo = await decryptData(appointment.property_owner.contact_no);
+            logSensitiveDataAccess('OWNER', 'appointment-view', ['contact_no']);
+            return {
+              ...appointment,
+              property_owner: {
+                ...appointment.property_owner,
+                contact_no: decryptedContactNo,
+              },
+            };
+          }
+          return appointment;
+        })
+      );
+
+      setAppointments(decryptedAppointments);
     } catch (error: any) {
       toast({
         title: 'Error',

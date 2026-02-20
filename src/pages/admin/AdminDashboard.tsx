@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Home, Calendar, UserCog } from 'lucide-react';
 
@@ -12,6 +13,7 @@ interface DashboardStats {
 }
 
 const AdminDashboard = () => {
+  const { userProfile } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     totalOwners: 0,
@@ -22,8 +24,8 @@ const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchStats();
-  }, []);
+    if (userProfile?.roleId === 1) fetchStats();
+  }, [userProfile]);
 
   const fetchStats = async () => {
     try {
@@ -58,6 +60,10 @@ const AdminDashboard = () => {
     { title: 'Properties', value: stats.totalProperties, icon: Home, color: 'bg-purple-500' },
     { title: 'Appointments', value: stats.totalAppointments, icon: Calendar, color: 'bg-orange-500' },
   ];
+
+  if (userProfile?.roleId !== 1) {
+    return <div className="flex items-center justify-center h-64"><p className="text-destructive">Unauthorized: Admin access required</p></div>;
+  }
 
   if (isLoading) {
     return (

@@ -83,7 +83,7 @@ const PropertyChatbot = () => {
         try {
             const criteria = extractSearchCriteria(userMsg.content);
 
-            let query = supabase.from("property").select("*");
+            let query = supabase.from("property").select("property_id, property_type, location, rental_price, num_bedroom, num_bathroom, property_size, description, availability_status, images");
 
             // Apply Filters based on extracted NLP
             if (criteria.minBeds) {

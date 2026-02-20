@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -21,9 +22,14 @@ interface ReportData {
 const COLORS = ['#8b5cf6', '#06b6d4', '#f59e0b', '#ef4444', '#22c55e'];
 
 const AdminReports = () => {
+  const { userProfile } = useAuth();
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+
+  if (userProfile?.roleId !== 1) {
+    return <div className="flex items-center justify-center h-64"><p className="text-destructive">Unauthorized: Admin access required</p></div>;
+  }
 
   const generateReport = async () => {
     setIsLoading(true);

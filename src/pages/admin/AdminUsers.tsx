@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +24,7 @@ interface Tenant {
 }
 
 const AdminUsers = () => {
+  const { userProfile } = useAuth();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,8 +40,8 @@ const AdminUsers = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchTenants();
-  }, []);
+    if (userProfile?.roleId === 1) fetchTenants();
+  }, [userProfile]);
 
   const fetchTenants = async () => {
     try {
@@ -222,6 +224,10 @@ const AdminUsers = () => {
     tenant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (tenant.email && tenant.email.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  if (userProfile?.roleId !== 1) {
+    return <div className="flex items-center justify-center h-64"><p className="text-destructive">Unauthorized: Admin access required</p></div>;
+  }
 
   return (
     <div className="space-y-6">
