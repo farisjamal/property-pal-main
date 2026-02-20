@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PropertyPal is a property management platform built with React, TypeScript, Vite, and Supabase. It supports three user roles (Admin, Property Owner, Tenant) with role-based access control (RBAC) and data encryption for sensitive information.
+PropertyPal is a property management platform built with React, TypeScript, Vite, and Supabase. It supports three user roles (Admin, Property Owner, Tenant) with role-based access control (RBAC) and server-side data encryption for sensitive information via Supabase Edge Functions.
 
 ## Development Commands
 
@@ -42,14 +42,55 @@ The application implements a three-tier role system:
 4. `ProtectedRoute` validates role against allowed roles for each route
 5. Unauthorized access redirects to `/auth`
 
+**Login Rate Limiting:**
+- Max 5 failed login attempts before a 60-second lockout
+- Lockout state managed in `src/pages/Auth.tsx` (client-side)
+- Countdown timer shown on the login button during lockout
+
 ### Security Architecture
 
 **Encryption ([src/utils/security.ts](src/utils/security.ts)):**
-- Sensitive data (IC numbers, contact info) encrypted using AES-256 with `VITE_ENCRYPTION_KEY`
-- Security PINs hashed using bcrypt (salt rounds: 10)
-- Functions: `encryptData()`, `decryptData()`, `hashPin()`
+- All encryption/decryption is **server-side only** via the `crypto-service` Edge Function
+- AES-256-GCM with a random IV per value; key never exposed to the client
+- `ENCRYPTION_KEY` is stored as a **Supabase Edge Function secret** (not in `.env`)
+- `encryptData()` and `decryptData()` are **async** — they invoke the Edge Function
+- `encryptData()` works without authentication (needed during registration)
+- `decryptData()` and `batchDecrypt()` require a valid user JWT
+- Security PINs hashed using bcrypt (salt rounds: 10) via `hashPin()` — client-side only
 - **CRITICAL:** IC numbers and contact numbers MUST be encrypted before saving to database
 - **CRITICAL:** Always decrypt before displaying sensitive data to users
+
+**Edge Functions ([supabase/functions/](supabase/functions/)):**
+
+| Function | Auth Required | Purpose |
+|---|---|---|
+| `crypto-service` | JWT for decrypt/batch_decrypt only | AES-256-GCM encrypt/decrypt |
+| `admin-create-user` | JWT + roleId:1 check | Create users without hijacking admin session |
+
+- CORS is **allowlisted** — only `http://localhost:8080` and `http://localhost:5173` are permitted
+- Do NOT use wildcard `*` CORS on any Edge Function
+- `admin-create-user` uses the `service_role` key (Admin API) so it never touches the caller's session
+- Admin pages call `supabase.functions.invoke('admin-create-user', ...)` — **never** `supabase.auth.signUp()` directly
+
+**IDOR Protection (Insecure Direct Object Reference):**
+- All owner property mutations include `.eq('owner_id', ownerId)` — see [src/pages/owner/OwnerProperties.tsx](src/pages/owner/OwnerProperties.tsx)
+- All owner appointment status updates include `.eq('owner_id', ownerId)` — see [src/pages/owner/OwnerAppointments.tsx](src/pages/owner/OwnerAppointments.tsx)
+- All tenant appointment cancellations include `.eq('tenant_id', tenantId)` — see [src/pages/tenant/TenantAppointments.tsx](src/pages/tenant/TenantAppointments.tsx)
+- **ALWAYS** scope mutations to the authenticated user's ID — never update/delete by record ID alone
+
+**Admin Page Authorization:**
+- Every admin page (`AdminDashboard`, `AdminUsers`, `AdminPropertyOwners`, `AdminReports`) performs an in-component role check via `useAuth()` in addition to `ProtectedRoute`
+- If `userProfile?.roleId !== 1`, the page renders an "Access Denied" state immediately
+- `useEffect` data fetches depend on `userProfile` to prevent loading before auth is confirmed
+
+**Chatbot Data Safety ([src/components/chat/PropertyChatbot.tsx](src/components/chat/PropertyChatbot.tsx)):**
+- Property query uses an **explicit column list** — never `select("*")`
+- Permitted columns: `property_id, property_type, location, rental_price, num_bedroom, num_bathroom, property_size, description, availability_status, images`
+- `owner_id` and any other sensitive join columns are deliberately excluded
+
+**CSS Injection Prevention ([src/components/ui/chart.tsx](src/components/ui/chart.tsx)):**
+- CSS values passed to `dangerouslySetInnerHTML` are sanitized via `sanitizeCssValue()` and `sanitizeCssIdentifier()`
+- These strip any characters outside safe CSS value ranges before injection
 
 **Audit Logging ([src/utils/auditLog.ts](src/utils/auditLog.ts)):**
 - Comprehensive audit trail for all security-sensitive operations
@@ -76,7 +117,6 @@ The application implements a three-tier role system:
 ```
 property-pal/
 ├── docs/                   # Documentation files
-│   ├── AUDIT_VIEW_SECURITY_FIX.md
 │   ├── REGISTRATION_FIX_SUMMARY.md
 │   ├── REGISTRATION_FIX_VERIFICATION.md
 │   ├── SECURITY_IMPLEMENTATION.md
@@ -97,9 +137,12 @@ property-pal/
 │   │   ├── admin/          # Admin dashboard and management pages
 │   │   ├── owner/          # Property owner dashboard and pages
 │   │   └── tenant/         # Tenant dashboard and pages
-│   ├── utils/              # Security utilities (encryption, hashing)
+│   ├── utils/              # Security utilities (encryption, audit logging)
 │   └── App.tsx             # Router configuration with role-based routes
 ├── supabase/
+│   ├── functions/
+│   │   ├── crypto-service/ # AES-256-GCM encrypt/decrypt Edge Function
+│   │   └── admin-create-user/ # Admin API user creation Edge Function
 │   ├── migrations/         # Database migrations (applied via Supabase)
 │   └── scripts/            # Utility SQL scripts (manual execution)
 │       ├── COMPLETE_REGISTRATION_FIX.sql
@@ -171,7 +214,9 @@ Auto-generated TypeScript types in [src/integrations/supabase/types.ts](src/inte
 Required variables in `.env`:
 - `VITE_SUPABASE_URL` - Supabase project URL
 - `VITE_SUPABASE_PUBLISHABLE_KEY` - Supabase anon key
-- `VITE_ENCRYPTION_KEY` - AES encryption secret for sensitive data
+
+**No longer in `.env`:**
+- `VITE_ENCRYPTION_KEY` has been removed — encryption is now fully server-side via the `crypto-service` Edge Function. The key is stored as a **Supabase Edge Function secret** named `ENCRYPTION_KEY`. Set it via Supabase Dashboard → Settings → Edge Functions → Secrets.
 
 ### TypeScript Configuration
 
@@ -198,17 +243,34 @@ When creating new role-specific pages:
 1. Place in appropriate folder: `src/pages/admin/`, `src/pages/owner/`, or `src/pages/tenant/`
 2. Add route to [src/App.tsx](src/App.tsx) within the corresponding `ProtectedRoute` wrapper
 3. Use `useAuth()` hook to access user profile and role information
-4. **ALWAYS** decrypt sensitive data using `decryptData()` from [src/utils/security.ts](src/utils/security.ts) before display
-5. **ALWAYS** log sensitive data access using `logSensitiveDataAccess()` from [src/utils/auditLog.ts](src/utils/auditLog.ts)
+4. **ALWAYS** scope mutations to the authenticated user's own records (IDOR prevention)
+5. **ALWAYS** decrypt sensitive data using `await decryptData()` from [src/utils/security.ts](src/utils/security.ts) before display — note it is async
+6. **ALWAYS** log sensitive data access using `logSensitiveDataAccess()` from [src/utils/auditLog.ts](src/utils/auditLog.ts)
 
 ### Security Best Practices
 
 **Data Encryption (MANDATORY):**
-- **ALWAYS** encrypt IC numbers and contact numbers before saving to database using `encryptData()`
-- **ALWAYS** decrypt before displaying to users using `decryptData()`
+- **ALWAYS** encrypt IC numbers and contact numbers before saving to database using `await encryptData()`
+- **ALWAYS** decrypt before displaying to users using `await decryptData()`
 - **NEVER** store plain text IC numbers or contact numbers in database
-- Use `hashPin()` for security PINs - never store plain text
-- Encryption is required for: `contact_no`, `ic_no` in `admin`, `property_owner`, and `tenant` tables
+- Use `hashPin()` for security PINs — never store plain text
+- Both `encryptData` and `decryptData` are **async** — always use `await`
+- Encryption is handled by the `crypto-service` Edge Function — the key never reaches the browser
+
+**Admin User Creation (MANDATORY):**
+- **NEVER** call `supabase.auth.signUp()` in admin pages — this hijacks the admin's own session
+- **ALWAYS** use `supabase.functions.invoke('admin-create-user', { body: { email, password, role, ... } })` instead
+- The Edge Function uses the `service_role` key server-side and returns `{ userId }` on success
+
+**IDOR Prevention (MANDATORY):**
+- **ALWAYS** add `.eq('owner_id', ownerId)` to owner property/appointment mutations
+- **ALWAYS** add `.eq('tenant_id', tenantId)` to tenant appointment mutations
+- **NEVER** update or delete a record by its primary key alone — always scope to the session user
+
+**CORS on Edge Functions:**
+- **NEVER** use `'Access-Control-Allow-Origin': '*'` on any Edge Function
+- Use the `getCorsHeaders(req)` pattern that checks against `ALLOWED_ORIGINS`
+- Add your production domain to `ALLOWED_ORIGINS` before deploying
 
 **Audit Logging (MANDATORY):**
 - **ALWAYS** log when sensitive data is decrypted: `logSensitiveDataAccess(resourceType, resourceId, ['contact_no', 'ic_no'])`
@@ -218,13 +280,14 @@ When creating new role-specific pages:
 
 **Access Control:**
 - Validate user roles on both frontend (ProtectedRoute) and backend (RLS policies)
+- Admin pages also verify `userProfile?.roleId === 1` in-component before rendering data
 - Sensitive operations should query through RLS-protected tables, not bypass security
-- Audit logs are admin-only - enforced by RLS policies
+- Audit logs are admin-only — enforced by RLS policies
 
 **Environment Security:**
-- Never commit `.env` file or expose `VITE_ENCRYPTION_KEY`
-- Use strong, randomly generated encryption keys (min 32 bytes)
-- Rotate encryption keys periodically (recommended: every 90 days)
+- Never commit `.env` file
+- `ENCRYPTION_KEY` is a Supabase secret — rotate via dashboard every 90 days
+- Rotating `ENCRYPTION_KEY` invalidates all existing encrypted data — re-encrypt before rotating
 
 **Example: Fetching and Decrypting Sensitive Data**
 
@@ -240,11 +303,10 @@ const fetchProfile = async () => {
     .single();
 
   if (data) {
-    // Decrypt sensitive fields
-    const decryptedContactNo = data.contact_no ? decryptData(data.contact_no) : '';
-    const decryptedIcNo = data.ic_no ? decryptData(data.ic_no) : '';
+    // decryptData is async — always await
+    const decryptedContactNo = data.contact_no ? await decryptData(data.contact_no) : '';
+    const decryptedIcNo = data.ic_no ? await decryptData(data.ic_no) : '';
 
-    // Log sensitive data access
     const accessedFields = [];
     if (decryptedContactNo) accessedFields.push('contact_no');
     if (decryptedIcNo) accessedFields.push('ic_no');
@@ -269,9 +331,9 @@ import { encryptData } from '@/utils/security';
 import { logProfileUpdate } from '@/utils/auditLog';
 
 const saveProfile = async () => {
-  // Encrypt sensitive fields
-  const encryptedContactNo = profile.contact_no ? encryptData(profile.contact_no) : null;
-  const encryptedIcNo = profile.ic_no ? encryptData(profile.ic_no) : null;
+  // encryptData is async — always await
+  const encryptedContactNo = profile.contact_no ? await encryptData(profile.contact_no) : null;
+  const encryptedIcNo = profile.ic_no ? await encryptData(profile.ic_no) : null;
 
   await supabase
     .from('tenant')
@@ -282,13 +344,32 @@ const saveProfile = async () => {
     })
     .eq('user_id', userId);
 
-  // Log profile update
   const updatedFields = ['name'];
   if (encryptedContactNo) updatedFields.push('contact_no');
   if (encryptedIcNo) updatedFields.push('ic_no');
 
   logProfileUpdate('TENANT', tenantId.toString(), updatedFields);
 };
+```
+
+**Example: Admin Creating a User (correct pattern)**
+
+```typescript
+const { data, error } = await supabase.functions.invoke('admin-create-user', {
+  body: {
+    email,
+    password,
+    role: 'tenant', // or 'property_owner'
+    name,
+    contact_no,  // plain text — Edge Function encrypts server-side
+    ic_no,
+  }
+});
+
+if (error) {
+  // handle error
+}
+// data.userId contains the new user's ID
 ```
 
 **For detailed security implementation guide, see:** [docs/SECURITY_IMPLEMENTATION.md](docs/SECURITY_IMPLEMENTATION.md)
