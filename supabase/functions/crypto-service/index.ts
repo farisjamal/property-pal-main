@@ -157,32 +157,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify JWT - reject unauthenticated requests
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Missing or invalid Authorization header' }),
-        { status: 401, headers: CORS_HEADERS }
-      );
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid or expired authentication token' }),
-        { status: 401, headers: CORS_HEADERS }
-      );
-    }
-
-    // Parse request body
+    // Parse request body first so we can check the action
     const body: CryptoRequest = await req.json();
 
     if (!body.action) {
@@ -197,6 +172,34 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Missing data field' }),
         { status: 400, headers: CORS_HEADERS }
       );
+    }
+
+    // decrypt and batch_decrypt expose sensitive data — require a valid JWT.
+    // encrypt is allowed unauthenticated (needed during registration before session exists).
+    if (body.action === 'decrypt' || body.action === 'batch_decrypt') {
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return new Response(
+          JSON.stringify({ error: 'Missing or invalid Authorization header' }),
+          { status: 401, headers: CORS_HEADERS }
+        );
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+      const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+
+      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      });
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid or expired authentication token' }),
+          { status: 401, headers: CORS_HEADERS }
+        );
+      }
     }
 
     // Get crypto key
