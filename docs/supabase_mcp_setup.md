@@ -10,11 +10,11 @@ This guide will help you connect the Supabase MCP (Model Context Protocol) serve
 
 ## Your Supabase Credentials
 
-**Project ID:** `wlflgdiqnrhjhgnhosvu`
+**Project ID:** `<YOUR_PROJECT_ID>`
 
-**Project URL:** `https://wlflgdiqnrhjhgnhosvu.supabase.co`
+**Project URL:** `<YOUR_SUPABASE_URL>`
 
-**Anon Key (Public):** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsZmxnZGlxbnJoamhnbmhvc3Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTU3MzEsImV4cCI6MjA4MjQzMTczMX0.imsp4NpqGjIzM0HeDzFocQ52llQ7cJUTzN1qldWfOeQ`
+**Anon Key (Public):** `<YOUR_SUPABASE_ANON_KEY>`
 
 ## Setup Methods
 
@@ -45,8 +45,8 @@ Open the config file and add this to the `mcpServers` section:
       "args": [
         "-y",
         "@modelcontextprotocol/server-supabase",
-        "https://wlflgdiqnrhjhgnhosvu.supabase.co",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsZmxnZGlxbnJoamhnbmhvc3Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTU3MzEsImV4cCI6MjA4MjQzMTczMX0.imsp4NpqGjIzM0HeDzFocQ52llQ7cJUTzN1qldWfOeQ"
+        "<YOUR_SUPABASE_URL>",
+        "<YOUR_SUPABASE_ANON_KEY>"
       ]
     }
   }
@@ -67,8 +67,8 @@ Open the config file and add this to the `mcpServers` section:
       "args": [
         "-y",
         "@modelcontextprotocol/server-supabase",
-        "https://wlflgdiqnrhjhgnhosvu.supabase.co",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsZmxnZGlxbnJoamhnbmhvc3Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTU3MzEsImV4cCI6MjA4MjQzMTczMX0.imsp4NpqGjIzM0HeDzFocQ52llQ7cJUTzN1qldWfOeQ"
+        "<YOUR_SUPABASE_URL>",
+        "<YOUR_SUPABASE_ANON_KEY>"
       ]
     }
   }
@@ -102,12 +102,12 @@ If you prefer using environment variables:
 
 ```bash
 # Windows (PowerShell)
-$env:SUPABASE_URL = "https://wlflgdiqnrhjhgnhosvu.supabase.co"
-$env:SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsZmxnZGlxbnJoamhnbmhvc3Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTU3MzEsImV4cCI6MjA4MjQzMTczMX0.imsp4NpqGjIzM0HeDzFocQ52llQ7cJUTzN1qldWfOeQ"
+$env:SUPABASE_URL = "<YOUR_SUPABASE_URL>"
+$env:SUPABASE_ANON_KEY = "<YOUR_SUPABASE_ANON_KEY>"
 
 # Linux/macOS
-export SUPABASE_URL="https://wlflgdiqnrhjhgnhosvu.supabase.co"
-export SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsZmxnZGlxbnJoamhnbmhvc3Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTU3MzEsImV4cCI6MjA4MjQzMTczMX0.imsp4NpqGjIzM0HeDzFocQ52llQ7cJUTzN1qldWfOeQ"
+export SUPABASE_URL="<YOUR_SUPABASE_URL>"
+export SUPABASE_ANON_KEY="<YOUR_SUPABASE_ANON_KEY>"
 ```
 
 2. **Update Claude Desktop config to use environment variables:**
@@ -356,7 +356,7 @@ After setup, verify these work:
 ## Support Resources
 
 - **Supabase MCP Server Docs:** https://github.com/modelcontextprotocol/servers/tree/main/src/supabase
-- **Supabase Dashboard:** https://wlflgdiqnrhjhgnhosvu.supabase.co
+- **Supabase Dashboard:** <YOUR_SUPABASE_URL>
 - **PropertyPal Security Guide:** [SECURITY_IMPLEMENTATION.md](SECURITY_IMPLEMENTATION.md)
 - **Database Schema Reference:** [CLAUDE.md](CLAUDE.md)
 
@@ -376,4 +376,4 @@ The anon key is safe for client use but should still be protected.
 
 **Last Updated:** January 17, 2026
 **Project:** PropertyPal - Property Management Platform
-**Supabase Project ID:** wlflgdiqnrhjhgnhosvu
+**Supabase Project ID:** <YOUR_PROJECT_ID>

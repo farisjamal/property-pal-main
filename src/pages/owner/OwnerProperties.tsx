@@ -125,7 +125,7 @@ const OwnerProperties = () => {
       if (editingProperty) {
         const {
           error
-        } = await supabase.from('property').update(propertyData).eq('property_id', editingProperty.property_id);
+        } = await supabase.from('property').update(propertyData).eq('property_id', editingProperty.property_id).eq('owner_id', ownerId);
         if (error) throw error;
 
         // Log property update
@@ -193,7 +193,7 @@ const OwnerProperties = () => {
 
       const {
         error
-      } = await supabase.from('property').delete().eq('property_id', propertyId);
+      } = await supabase.from('property').delete().eq('property_id', propertyId).eq('owner_id', ownerId);
       if (error) throw error;
 
       // Log property deletion

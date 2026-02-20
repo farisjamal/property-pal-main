@@ -116,52 +116,26 @@ const AdminUsers = () => {
           description: 'Tenant updated successfully',
         });
       } else {
-        // Create new tenant with Supabase Auth
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
+        // Create new tenant via server-side Edge Function (preserves admin session)
+        const encryptedContactNo = formData.contact_no ? await encryptData(formData.contact_no) : null;
+
+        const { data: result, error: createError } = await supabase.functions.invoke('admin-create-user', {
+          body: {
+            email: formData.email,
+            password: formData.password,
+            role_id: 3,
+            name: formData.name,
+            contact_no: encryptedContactNo,
+            gender: formData.gender || null,
           },
         });
 
-        if (authError) throw authError;
-        if (!authData.user) throw new Error('Failed to create user');
-
-        // Create user record (password is managed by Supabase Auth)
-        await supabase.from('users').insert({
-          user_id: authData.user.id,
-          email: formData.email,
-          role_id: 3,
-        });
-
-        // Create user_roles record
-        await supabase.from('user_roles').insert({
-          user_id: authData.user.id,
-          role_id: 3,
-        });
-
-        // Encrypt contact number before saving
-        const encryptedContactNo = formData.contact_no ? await encryptData(formData.contact_no) : null;
-
-        // Create tenant profile
-        const { data: newTenant, error: tenantError } = await supabase
-          .from('tenant')
-          .insert({
-            user_id: authData.user.id,
-            name: formData.name,
-            email: formData.email,
-            contact_no: encryptedContactNo,
-            gender: formData.gender || null,
-          })
-          .select()
-          .single();
-
-        if (tenantError) throw tenantError;
+        if (createError) throw createError;
+        if (result?.error) throw new Error(result.error);
 
         // Log user creation
-        if (newTenant) {
-          logUserCreation('TENANT', newTenant.tenant_id.toString(), formData.email);
+        if (result?.profile) {
+          logUserCreation('TENANT', result.profile.tenant_id.toString(), formData.email);
         }
 
         toast({

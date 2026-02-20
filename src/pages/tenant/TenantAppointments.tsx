@@ -42,6 +42,7 @@ const TenantAppointments = () => {
     appointment: null
   });
   const [isCancelling, setIsCancelling] = useState(false);
+  const [tenantId, setTenantId] = useState<number | null>(null);
   useEffect(() => {
     if (user) fetchAppointments();
   }, [user]);
@@ -54,6 +55,7 @@ const TenantAppointments = () => {
       } = await supabase.from('tenant').select('tenant_id').eq('user_id', user!.id).maybeSingle();
       if (tenantError) throw tenantError;
       if (!tenantData) return;
+      setTenantId(tenantData.tenant_id);
       const {
         data,
         error
@@ -88,7 +90,7 @@ const TenantAppointments = () => {
         error
       } = await supabase.from('appointment').update({
         status: 'cancelled'
-      }).eq('appointment_id', cancelDialog.appointment.appointment_id);
+      }).eq('appointment_id', cancelDialog.appointment.appointment_id).eq('tenant_id', tenantId);
       if (error) throw error;
       toast({
         title: 'Success',

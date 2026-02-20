@@ -39,6 +39,7 @@ const OwnerAppointments = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [actionDialog, setActionDialog] = useState<{ open: boolean; type: 'approve' | 'reject' | null }>({ open: false, type: null });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [ownerId, setOwnerId] = useState<number | null>(null);
 
   useEffect(() => {
     if (user) fetchAppointments();
@@ -55,6 +56,7 @@ const OwnerAppointments = () => {
 
       if (ownerError) throw ownerError;
       if (!ownerData) return;
+      setOwnerId(ownerData.owner_id);
 
       const { data, error } = await supabase
         .from('appointment')
@@ -110,7 +112,8 @@ const OwnerAppointments = () => {
       const { error } = await supabase
         .from('appointment')
         .update({ status: newStatus })
-        .eq('appointment_id', selectedAppointment.appointment_id);
+        .eq('appointment_id', selectedAppointment.appointment_id)
+        .eq('owner_id', ownerId);
 
       if (error) throw error;
 
