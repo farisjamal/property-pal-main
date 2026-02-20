@@ -27,8 +27,14 @@ const registerSchema = z.object({
   securityPin: z.string().length(6, "Security PIN must be exactly 6 digits").regex(/^\d+$/, "PIN must contain only numbers"),
 });
 
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 60_000; // 1 minute
+
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({
     name: '',
@@ -40,6 +46,20 @@ const Auth = () => {
   });
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Lockout countdown timer
+  useEffect(() => {
+    if (!lockoutUntil) return;
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, lockoutUntil - Date.now());
+      setLockoutRemaining(Math.ceil(remaining / 1000));
+      if (remaining <= 0) {
+        setLockoutUntil(null);
+        setLoginAttempts(0);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutUntil]);
 
   useEffect(() => {
     // Check if already logged in
@@ -76,8 +96,20 @@ const Auth = () => {
     }
   };
 
+  const isLockedOut = lockoutUntil !== null && Date.now() < lockoutUntil;
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isLockedOut) {
+      toast({
+        title: 'Too many attempts',
+        description: `Please wait ${lockoutRemaining} seconds before trying again.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -103,8 +135,10 @@ const Auth = () => {
         throw new Error('User role not found. Please contact support.');
       }
 
-      // Log successful login
+      // Log successful login and reset attempts
       await logLogin(authData.user.id);
+      setLoginAttempts(0);
+      setLockoutUntil(null);
 
       toast({
         title: 'Welcome back!',
@@ -122,12 +156,22 @@ const Auth = () => {
         message = 'Invalid email or password';
       }
 
-      // Log failed login attempt
+      // Log failed login attempt and track rate limiting
       await logFailedLogin(loginData.email, message);
 
+      const newAttempts = loginAttempts + 1;
+      setLoginAttempts(newAttempts);
+      if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+        setLockoutUntil(Date.now() + LOCKOUT_DURATION_MS);
+        setLockoutRemaining(Math.ceil(LOCKOUT_DURATION_MS / 1000));
+      }
+
+      const attemptsLeft = MAX_LOGIN_ATTEMPTS - newAttempts;
       toast({
         title: 'Login Failed',
-        description: message,
+        description: attemptsLeft > 0
+          ? `${message}. ${attemptsLeft} attempt${attemptsLeft === 1 ? '' : 's'} remaining.`
+          : `${message}. Too many failed attempts. Please wait 1 minute.`,
         variant: 'destructive',
       });
     } finally {
@@ -268,8 +312,8 @@ const Auth = () => {
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full bg-gradient-primary" disabled={isLoading}>
-                  {isLoading ? 'Signing in...' : 'Sign In'}
+                <Button type="submit" className="w-full bg-gradient-primary" disabled={isLoading || isLockedOut}>
+                  {isLockedOut ? `Locked out (${lockoutRemaining}s)` : isLoading ? 'Signing in...' : 'Sign In'}
                 </Button>
               </form>
             </TabsContent>
