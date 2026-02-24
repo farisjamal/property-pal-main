@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -31,6 +30,13 @@ interface Appointment {
   } | null;
 }
 
+const statusConfig = {
+  pending: { label: 'Pending', className: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800' },
+  approved: { label: 'Approved', className: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800' },
+  rejected: { label: 'Rejected', className: 'bg-red-500/10 text-red-600 border-red-200 dark:border-red-800' },
+  cancelled: { label: 'Cancelled', className: 'bg-muted text-muted-foreground border-border' },
+};
+
 const OwnerAppointments = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -47,7 +53,6 @@ const OwnerAppointments = () => {
 
   const fetchAppointments = async () => {
     try {
-      // First get the owner_id
       const { data: ownerData, error: ownerError } = await supabase
         .from('property_owner')
         .select('owner_id')
@@ -74,19 +79,14 @@ const OwnerAppointments = () => {
 
       if (error) throw error;
 
-      // Decrypt sensitive tenant contact numbers and log access
       const decryptedAppointments = await Promise.all(
         (data as unknown as Appointment[])?.map(async (appointment) => {
           if (appointment.tenant?.contact_no) {
             const decryptedContactNo = await decryptData(appointment.tenant.contact_no);
-            // Log sensitive data access
             logSensitiveDataAccess('TENANT', appointment.tenant.tenant_id.toString(), ['contact_no']);
             return {
               ...appointment,
-              tenant: {
-                ...appointment.tenant,
-                contact_no: decryptedContactNo
-              }
+              tenant: { ...appointment.tenant, contact_no: decryptedContactNo },
             };
           }
           return appointment;
@@ -103,7 +103,6 @@ const OwnerAppointments = () => {
 
   const handleAction = async () => {
     if (!selectedAppointment || !actionDialog.type) return;
-
     setIsProcessing(true);
     try {
       const oldStatus = selectedAppointment.status;
@@ -117,7 +116,6 @@ const OwnerAppointments = () => {
 
       if (error) throw error;
 
-      // Log appointment status change
       await logAppointmentStatusChange(
         selectedAppointment.appointment_id.toString(),
         oldStatus,
@@ -139,157 +137,246 @@ const OwnerAppointments = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending': return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Pending</Badge>;
-      case 'approved': return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Approved</Badge>;
-      case 'rejected': return <Badge className="bg-red-500/10 text-red-500 border-red-500/20">Rejected</Badge>;
-      case 'cancelled': return <Badge className="bg-muted text-muted-foreground">Cancelled</Badge>;
-      default: return <Badge>{status}</Badge>;
-    }
-  };
+  const filterByStatus = (status: string | null) =>
+    status ? appointments.filter(a => a.status === status) : appointments;
 
-  const filterByStatus = (status: string | null) => {
-    if (!status) return appointments;
-    return appointments.filter(a => a.status === status);
-  };
-
-  const AppointmentCard = ({ appointment }: { appointment: Appointment }) => (
-    <Card className="hover-lift">
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="text-lg">{appointment.property?.property_type || 'Property'}</CardTitle>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-              <MapPin className="w-3 h-3" />
-              <span className="line-clamp-1">{appointment.property?.location || 'Location not available'}</span>
+  const AppointmentCard = ({ appointment }: { appointment: Appointment }) => {
+    const sc = statusConfig[appointment.status as keyof typeof statusConfig] || statusConfig.pending;
+    return (
+      <div className="card-elevated p-5 space-y-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="font-semibold text-sm leading-tight truncate">
+              {appointment.property?.property_type || 'Property'}
+            </h3>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+              <MapPin className="w-3 h-3 shrink-0" />
+              <span className="truncate">{appointment.property?.location || '—'}</span>
             </div>
           </div>
-          {getStatusBadge(appointment.status)}
+          <Badge className={`text-xs shrink-0 border ${sc.className}`}>{sc.label}</Badge>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex items-center gap-2 text-sm">
-            <Calendar className="w-4 h-4 text-primary" />
-            <span>{format(new Date(appointment.appointment_date), 'MMM d, yyyy')}</span>
+
+        {/* Date / Time */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-muted/50">
+            <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span className="text-xs font-medium">
+              {format(new Date(appointment.appointment_date), 'MMM d, yyyy')}
+            </span>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <Clock className="w-4 h-4 text-primary" />
-            <span>{appointment.appointment_time}</span>
+          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-muted/50">
+            <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span className="text-xs font-medium">{appointment.appointment_time}</span>
           </div>
         </div>
 
-        <div className="border-t border-border pt-4">
-          <p className="text-xs text-muted-foreground mb-2">Requested by:</p>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm">
-              <User className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium">{appointment.tenant?.name || 'Unknown Tenant'}</span>
+        {/* Tenant Info */}
+        <div className="pt-3 border-t border-border/50">
+          <p className="section-label mb-2.5">Requested by</p>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <User className="w-4 h-4 text-primary" />
             </div>
-            {appointment.tenant?.email && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail className="w-3 h-3" />
-                <span>{appointment.tenant.email}</span>
-              </div>
-            )}
-            {appointment.tenant?.contact_no && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="w-3 h-3" />
-                <span>{appointment.tenant.contact_no}</span>
-              </div>
-            )}
+            <div className="min-w-0">
+              <p className="font-medium text-sm truncate">
+                {appointment.tenant?.name || 'Unknown Tenant'}
+              </p>
+              {appointment.tenant?.email && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                  <Mail className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{appointment.tenant.email}</span>
+                </div>
+              )}
+              {appointment.tenant?.contact_no && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Phone className="w-3 h-3 shrink-0" />
+                  <span>{appointment.tenant.contact_no}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
+        {/* Actions (pending only) */}
         {appointment.status === 'pending' && (
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-1">
             <Button
               size="sm"
-              className="flex-1 bg-green-600 hover:bg-green-700"
-              onClick={() => { setSelectedAppointment(appointment); setActionDialog({ open: true, type: 'approve' }); }}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl gap-1.5 text-xs font-medium"
+              onClick={() => {
+                setSelectedAppointment(appointment);
+                setActionDialog({ open: true, type: 'approve' });
+              }}
             >
-              <Check className="w-4 h-4 mr-1" />Approve
+              <Check className="w-3.5 h-3.5" />
+              Approve
             </Button>
             <Button
               size="sm"
               variant="destructive"
-              className="flex-1"
-              onClick={() => { setSelectedAppointment(appointment); setActionDialog({ open: true, type: 'reject' }); }}
+              className="flex-1 rounded-xl gap-1.5 text-xs font-medium"
+              onClick={() => {
+                setSelectedAppointment(appointment);
+                setActionDialog({ open: true, type: 'reject' });
+              }}
             >
-              <X className="w-4 h-4 mr-1" />Reject
+              <X className="w-3.5 h-3.5" />
+              Reject
             </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
-  );
-
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
-  }
+      </div>
+    );
+  };
 
   const pendingCount = filterByStatus('pending').length;
   const approvedCount = filterByStatus('approved').length;
   const rejectedCount = filterByStatus('rejected').length;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Appointment Requests</h2>
-        <p className="text-muted-foreground">Review and manage viewing requests from tenants</p>
+    <div className="space-y-8 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="animate-fade-up">
+        <p className="section-label mb-1.5">Management</p>
+        <h1 className="font-display font-light text-[clamp(1.8rem,4vw,2.8rem)] leading-tight tracking-[-0.02em]">
+          Appointment Requests
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          Review and manage viewing requests from tenants.
+        </p>
       </div>
 
-      <Tabs defaultValue="pending" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 max-w-lg">
-          <TabsTrigger value="all">All ({appointments.length})</TabsTrigger>
-          <TabsTrigger value="pending">Pending ({pendingCount})</TabsTrigger>
-          <TabsTrigger value="approved">Approved ({approvedCount})</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected ({rejectedCount})</TabsTrigger>
+      {/* Tabs */}
+      <Tabs defaultValue="pending" className="w-full animate-fade-up" style={{ animationDelay: '0.1s' }}>
+        <TabsList className="h-auto p-1 rounded-xl bg-muted/60 gap-1">
+          {[
+            { value: 'all', label: 'All', count: appointments.length },
+            { value: 'pending', label: 'Pending', count: pendingCount },
+            { value: 'approved', label: 'Approved', count: approvedCount },
+            { value: 'rejected', label: 'Rejected', count: rejectedCount },
+          ].map(tab => (
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="rounded-lg text-xs font-medium px-4 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              {tab.label}
+              {tab.count > 0 && (
+                <span className="ml-1.5 bg-primary/15 text-primary text-[10px] font-semibold px-1.5 py-0.5 rounded-full">
+                  {tab.count}
+                </span>
+              )}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        {['all', 'pending', 'approved', 'rejected'].map((tab) => (
-          <TabsContent key={tab} value={tab} className="mt-6">
-            {filterByStatus(tab === 'all' ? null : tab).length === 0 ? (
-              <Card><CardContent className="flex flex-col items-center justify-center py-12"><p className="text-muted-foreground">No {tab === 'all' ? '' : tab} appointments</p></CardContent></Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filterByStatus(tab === 'all' ? null : tab).map((appointment) => (
-                  <AppointmentCard key={appointment.appointment_id} appointment={appointment} />
-                ))}
+        {isLoading ? (
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="card-elevated p-5 space-y-3 animate-pulse">
+                <div className="h-4 bg-muted rounded-lg w-2/3" />
+                <div className="h-3 bg-muted rounded-lg w-1/2" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="h-9 bg-muted rounded-xl" />
+                  <div className="h-9 bg-muted rounded-xl" />
+                </div>
+                <div className="h-14 bg-muted rounded-xl" />
               </div>
-            )}
-          </TabsContent>
-        ))}
+            ))}
+          </div>
+        ) : (
+          <>
+            {['all', 'pending', 'approved', 'rejected'].map(tab => (
+              <TabsContent key={tab} value={tab} className="mt-6">
+                {filterByStatus(tab === 'all' ? null : tab).length === 0 ? (
+                  <div className="card-elevated p-12 text-center">
+                    <Calendar className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="text-muted-foreground text-sm">
+                      No {tab === 'all' ? '' : tab} appointments.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {filterByStatus(tab === 'all' ? null : tab).map(appointment => (
+                      <AppointmentCard key={appointment.appointment_id} appointment={appointment} />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            ))}
+          </>
+        )}
       </Tabs>
 
-      <Dialog open={actionDialog.open} onOpenChange={(open) => setActionDialog({ open, type: actionDialog.type })}>
-        <DialogContent>
+      {/* Confirm Action Dialog */}
+      <Dialog
+        open={actionDialog.open}
+        onOpenChange={open => setActionDialog({ open, type: actionDialog.type })}
+      >
+        <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle>{actionDialog.type === 'approve' ? 'Approve Appointment' : 'Reject Appointment'}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="font-display font-light text-2xl">
+              {actionDialog.type === 'approve' ? 'Approve Viewing' : 'Decline Viewing'}
+            </DialogTitle>
+            <DialogDescription className="text-sm">
               {actionDialog.type === 'approve'
-                ? 'Are you sure you want to approve this viewing appointment? The tenant will be notified via email.'
-                : 'Are you sure you want to reject this viewing appointment? The tenant will be notified via email.'}
+                ? 'Confirm this viewing appointment. The tenant will be notified.'
+                : 'Decline this viewing request. The tenant will be notified.'}
             </DialogDescription>
           </DialogHeader>
+
           {selectedAppointment && (
-            <div className="py-4 space-y-2 text-sm">
-              <p><strong>Property:</strong> {selectedAppointment.property?.property_type || 'Property'} at {selectedAppointment.property?.location || 'N/A'}</p>
-              <p><strong>Date:</strong> {format(new Date(selectedAppointment.appointment_date), 'MMMM d, yyyy')}</p>
-              <p><strong>Time:</strong> {selectedAppointment.appointment_time}</p>
-              <p><strong>Tenant:</strong> {selectedAppointment.tenant?.name || 'Unknown'}</p>
+            <div className="py-4 space-y-3">
+              <div className="card-elevated p-4 space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Property</span>
+                  <span className="font-medium">
+                    {selectedAppointment.property?.property_type || 'Property'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Date</span>
+                  <span className="font-medium">
+                    {format(new Date(selectedAppointment.appointment_date), 'MMMM d, yyyy')}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Time</span>
+                  <span className="font-medium">{selectedAppointment.appointment_time}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Tenant</span>
+                  <span className="font-medium">{selectedAppointment.tenant?.name || 'Unknown'}</span>
+                </div>
+              </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setActionDialog({ open: false, type: null })}>Cancel</Button>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setActionDialog({ open: false, type: null })}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
             <Button
               onClick={handleAction}
               disabled={isProcessing}
-              className={actionDialog.type === 'approve' ? 'bg-green-600 hover:bg-green-700' : ''}
+              className={`rounded-xl px-6 ${
+                actionDialog.type === 'approve'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  : ''
+              }`}
               variant={actionDialog.type === 'reject' ? 'destructive' : 'default'}
             >
-              {isProcessing ? 'Processing...' : actionDialog.type === 'approve' ? 'Approve' : 'Reject'}
+              {isProcessing
+                ? 'Processing...'
+                : actionDialog.type === 'approve'
+                ? 'Confirm Approval'
+                : 'Decline'}
             </Button>
           </DialogFooter>
         </DialogContent>
