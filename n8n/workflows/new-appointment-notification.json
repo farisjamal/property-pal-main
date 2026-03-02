@@ -1,0 +1,120 @@
+{
+  "name": "PropertyPal - New Appointment Notification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-appointment",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "node-webhook-new-appt",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "propertypal-new-appointment"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $vars.SUPABASE_URL }}/rest/v1/appointment?appointment_id=eq.{{ $json.body.appointmentId }}&select=appointment_id,appointment_date,appointment_time,property:property_id(property_type,location),tenant:tenant_id(name,email),property_owner:owner_id(name,email)",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $vars.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $vars.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-http-get-appt",
+      "name": "Get Appointment Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $vars.SMTP_FROM_EMAIL }}",
+        "toEmail": "={{ $json[0].tenant.email }}",
+        "subject": "PropertyPal — Your Viewing Request Has Been Received",
+        "emailType": "html",
+        "message": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px\">\n  <h2 style=\"color:#7c3aed\">Viewing Request Received</h2>\n  <p>Hi <strong>{{ $json[0].tenant.name }}</strong>,</p>\n  <p>Great news! Your request to view the following property has been submitted and is awaiting owner approval.</p>\n  <div style=\"background:#f5f3ff;border-left:4px solid #7c3aed;padding:16px;border-radius:4px;margin:16px 0\">\n    <p style=\"margin:4px 0\"><strong>Property:</strong> {{ $json[0].property.property_type }}</p>\n    <p style=\"margin:4px 0\"><strong>Location:</strong> {{ $json[0].property.location }}</p>\n    <p style=\"margin:4px 0\"><strong>Date:</strong> {{ $json[0].appointment_date }}</p>\n    <p style=\"margin:4px 0\"><strong>Time:</strong> {{ $json[0].appointment_time }}</p>\n  </div>\n  <p>You will receive another email once the property owner approves or declines your request. You can also track your appointment status in your PropertyPal dashboard.</p>\n  <p style=\"color:#6b7280;font-size:12px;margin-top:32px\">This is an automated message from PropertyPal.</p>\n</div>",
+        "options": {}
+      },
+      "id": "node-email-tenant-new",
+      "name": "Email Tenant - Request Received",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [700, 180],
+      "credentials": {
+        "smtp": {
+          "id": "1",
+          "name": "PropertyPal SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $vars.SMTP_FROM_EMAIL }}",
+        "toEmail": "={{ $json[0].property_owner.email }}",
+        "subject": "PropertyPal — New Viewing Request for Your Property",
+        "emailType": "html",
+        "message": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px\">\n  <h2 style=\"color:#7c3aed\">New Viewing Request</h2>\n  <p>Hi <strong>{{ $json[0].property_owner.name }}</strong>,</p>\n  <p>You have received a new viewing request for your property.</p>\n  <div style=\"background:#f5f3ff;border-left:4px solid #7c3aed;padding:16px;border-radius:4px;margin:16px 0\">\n    <p style=\"margin:4px 0\"><strong>Property:</strong> {{ $json[0].property.property_type }} at {{ $json[0].property.location }}</p>\n    <p style=\"margin:4px 0\"><strong>Requested by:</strong> {{ $json[0].tenant.name }}</p>\n    <p style=\"margin:4px 0\"><strong>Requested Date:</strong> {{ $json[0].appointment_date }}</p>\n    <p style=\"margin:4px 0\"><strong>Requested Time:</strong> {{ $json[0].appointment_time }}</p>\n  </div>\n  <p>Please log in to your PropertyPal dashboard to <strong>approve or reject</strong> this request.</p>\n  <p style=\"color:#6b7280;font-size:12px;margin-top:32px\">This is an automated message from PropertyPal.</p>\n</div>",
+        "options": {}
+      },
+      "id": "node-email-owner-new",
+      "name": "Email Owner - New Request",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [700, 420],
+      "credentials": {
+        "smtp": {
+          "id": "1",
+          "name": "PropertyPal SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Appointment Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Appointment Details": {
+      "main": [
+        [
+          {
+            "node": "Email Tenant - Request Received",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email Owner - New Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "propertypal" }]
+}

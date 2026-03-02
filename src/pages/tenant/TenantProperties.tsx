@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin, Bed, Bath, Ruler, Calendar, Search, Filter, ImageIcon, Eye, Heart } from "lucide-react";
 import PropertyDetailModal from "@/components/properties/PropertyDetailModal";
 import { logAppointmentCreation } from "@/utils/auditLog";
+import { notifyNewBooking } from "@/utils/n8nService";
 
 interface Property {
   property_id: number;
@@ -210,12 +211,14 @@ const TenantProperties = () => {
       }).select('appointment_id').single();
       if (error) throw error;
 
-      // Log appointment creation
+      // Log appointment creation and trigger n8n email notifications
       if (newAppointment) {
         await logAppointmentCreation(
           newAppointment.appointment_id.toString(),
           selectedProperty.property_id.toString()
         );
+        // Fire-and-forget: n8n sends confirmation emails to tenant and owner
+        notifyNewBooking(newAppointment.appointment_id);
       }
 
       toast({

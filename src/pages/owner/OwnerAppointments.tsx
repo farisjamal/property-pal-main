@@ -11,6 +11,7 @@ import { Calendar, Clock, MapPin, User, Phone, Mail, Check, X } from 'lucide-rea
 import { format } from 'date-fns';
 import { decryptData } from '@/utils/security';
 import { logSensitiveDataAccess, logAppointmentStatusChange } from '@/utils/auditLog';
+import { notifyStatusUpdate } from '@/utils/n8nService';
 
 interface Appointment {
   appointment_id: number;
@@ -123,6 +124,9 @@ const OwnerAppointments = () => {
         oldStatus,
         newStatus
       );
+
+      // Fire-and-forget: trigger n8n to email the tenant with the decision
+      notifyStatusUpdate(selectedAppointment.appointment_id);
 
       toast({
         title: 'Success',
