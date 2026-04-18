@@ -114,6 +114,43 @@ supabase migration new <migration_name>
 
 See [SECURITY_IMPLEMENTATION.md](SECURITY_IMPLEMENTATION.md) for full security architecture.
 
+## Git Workflow
+
+Work happens on short-lived feature branches, never directly on `main`.
+
+```bash
+# Start a new feature
+git checkout main
+git pull
+git checkout -b feature/short-name
+
+# Test locally while iterating
+npm run dev        # hot-reload dev server at localhost
+npm run build      # verify it compiles
+npm run lint       # catch code issues
+
+# Checkpoint as you go — commits are your undo history
+git add <files>
+git commit -m "checkpoint: what this change does"
+
+# When the feature works end-to-end
+git push -u origin feature/short-name
+# open a PR on GitHub, let CI run, merge when green
+```
+
+### Undoing things
+
+| Situation | Command |
+|-----------|---------|
+| Undo unstaged edits in a file | `git restore <file>` |
+| Unstage a file (keep edits) | `git restore --staged <file>` |
+| Undo last commit, keep changes as edits | `git reset --soft HEAD~1` |
+| Undo last commit and discard changes | `git reset --hard HEAD~1` |
+| Revert an old commit safely (new inverse commit) | `git revert <hash>` |
+| Find any past repo state (even "lost" commits) | `git reflog` |
+
+`git reflog` keeps ~90 days of history — almost nothing is truly lost once committed.
+
 ## n8n Workflows
 
 See [n8n/SETUP.md](../n8n/SETUP.md) for setting up the email notification automation server.
