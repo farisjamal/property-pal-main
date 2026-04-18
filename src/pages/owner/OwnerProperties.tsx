@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,9 +9,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2, MapPin, Bed, Bath, Ruler, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, MapPin, Bed, Bath, Ruler, Image as ImageIcon, Building2 } from 'lucide-react';
 import PropertyPhotoUpload from '@/components/properties/PropertyPhotoUpload';
 import { logPropertyCreation, logPropertyUpdate, logPropertyDeletion } from '@/utils/auditLog';
+
 interface Property {
   property_id: number;
   property_type: string;
@@ -26,6 +26,7 @@ interface Property {
   created_at: string;
   images: string[] | null;
 }
+
 interface PropertyFormData {
   property_type: string;
   location: string;
@@ -37,6 +38,7 @@ interface PropertyFormData {
   availability_status: string;
   images: string[];
 }
+
 const initialFormData: PropertyFormData = {
   property_type: '',
   location: '',
@@ -46,15 +48,18 @@ const initialFormData: PropertyFormData = {
   property_size: '',
   description: '',
   availability_status: 'Available',
-  images: []
+  images: [],
 };
+
+const statusConfig: Record<string, string> = {
+  Available: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
+  Occupied: 'bg-red-500/10 text-red-600 border-red-200 dark:border-red-800',
+  Reserved: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800',
+};
+
 const OwnerProperties = () => {
-  const {
-    user
-  } = useAuth();
-  const {
-    toast
-  } = useToast();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [properties, setProperties] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -62,50 +67,42 @@ const OwnerProperties = () => {
   const [formData, setFormData] = useState<PropertyFormData>(initialFormData);
   const [ownerId, setOwnerId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   useEffect(() => {
-    if (user) {
-      fetchOwnerIdAndProperties();
-    }
+    if (user) fetchOwnerIdAndProperties();
   }, [user]);
+
   const fetchOwnerIdAndProperties = async () => {
     try {
-      // Get owner_id for the current user
-      const {
-        data: ownerData,
-        error: ownerError
-      } = await supabase.from('property_owner').select('owner_id').eq('user_id', user!.id).maybeSingle();
+      const { data: ownerData, error: ownerError } = await supabase
+        .from('property_owner')
+        .select('owner_id')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+
       if (ownerError) throw ownerError;
       if (ownerData) {
         setOwnerId(ownerData.owner_id);
+        const { data: propertiesData, error: propertiesError } = await supabase
+          .from('property')
+          .select('*')
+          .eq('owner_id', ownerData.owner_id)
+          .order('created_at', { ascending: false });
 
-        // Fetch properties for this owner
-        const {
-          data: propertiesData,
-          error: propertiesError
-        } = await supabase.from('property').select('*').eq('owner_id', ownerData.owner_id).order('created_at', {
-          ascending: false
-        });
         if (propertiesError) throw propertiesError;
         setProperties(propertiesData || []);
       }
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive'
-      });
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
   };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ownerId) {
-      toast({
-        title: 'Error',
-        description: 'Owner profile not found',
-        variant: 'destructive'
-      });
+      toast({ title: 'Error', description: 'Owner profile not found', variant: 'destructive' });
       return;
     }
     setIsSubmitting(true);
@@ -120,55 +117,48 @@ const OwnerProperties = () => {
         description: formData.description || null,
         availability_status: formData.availability_status,
         owner_id: ownerId,
-        images: formData.images
+        images: formData.images,
       };
+
       if (editingProperty) {
-        const {
-          error
-        } = await supabase.from('property').update(propertyData).eq('property_id', editingProperty.property_id).eq('owner_id', ownerId);
+        const { error } = await supabase
+          .from('property')
+          .update(propertyData)
+          .eq('property_id', editingProperty.property_id)
+          .eq('owner_id', ownerId);
+
         if (error) throw error;
 
-        // Log property update
-        const updatedFields = Object.keys(propertyData).filter(key =>
-          propertyData[key as keyof typeof propertyData] !== undefined
+        const updatedFields = Object.keys(propertyData).filter(
+          key => propertyData[key as keyof typeof propertyData] !== undefined
         );
         await logPropertyUpdate(editingProperty.property_id.toString(), updatedFields);
 
-        toast({
-          title: 'Success',
-          description: 'Property updated successfully'
-        });
+        toast({ title: 'Success', description: 'Property updated successfully' });
       } else {
-        const {
-          data: newProperty,
-          error
-        } = await supabase.from('property').insert(propertyData).select('property_id').single();
+        const { data: newProperty, error } = await supabase
+          .from('property')
+          .insert(propertyData)
+          .select('property_id')
+          .single();
+
         if (error) throw error;
+        if (newProperty) await logPropertyCreation(newProperty.property_id.toString(), formData.property_type);
 
-        // Log property creation
-        if (newProperty) {
-          await logPropertyCreation(newProperty.property_id.toString(), formData.property_type);
-        }
-
-        toast({
-          title: 'Success',
-          description: 'Property added successfully'
-        });
+        toast({ title: 'Success', description: 'Property added successfully' });
       }
+
       setIsDialogOpen(false);
       setEditingProperty(null);
       setFormData(initialFormData);
       fetchOwnerIdAndProperties();
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive'
-      });
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
   };
+
   const handleEdit = (property: Property) => {
     setEditingProperty(property);
     setFormData({
@@ -180,203 +170,356 @@ const OwnerProperties = () => {
       property_size: property.property_size?.toString() || '',
       description: property.description || '',
       availability_status: property.availability_status || 'Available',
-      images: property.images || []
+      images: property.images || [],
     });
     setIsDialogOpen(true);
   };
+
   const handleDelete = async (propertyId: number) => {
     if (!confirm('Are you sure you want to delete this property?')) return;
     try {
-      // Get property title before deletion for logging
       const propertyToDelete = properties.find(p => p.property_id === propertyId);
       const propertyTitle = propertyToDelete?.property_type || 'Unknown';
 
-      const {
-        error
-      } = await supabase.from('property').delete().eq('property_id', propertyId).eq('owner_id', ownerId);
-      if (error) throw error;
+      const { error } = await supabase
+        .from('property')
+        .delete()
+        .eq('property_id', propertyId)
+        .eq('owner_id', ownerId);
 
-      // Log property deletion
+      if (error) throw error;
       await logPropertyDeletion(propertyId.toString(), propertyTitle);
 
-      toast({
-        title: 'Success',
-        description: 'Property deleted successfully'
-      });
+      toast({ title: 'Success', description: 'Property deleted successfully' });
       fetchOwnerIdAndProperties();
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive'
-      });
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
   };
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Available':
-        return 'bg-green-500/10 text-green-500 border-green-500/20';
-      case 'Occupied':
-        return 'bg-red-500/10 text-red-500 border-red-500/20';
-      case 'Reserved':
-        return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
-      default:
-        return 'bg-muted text-muted-foreground';
-    }
-  };
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
-  }
-  return <div className="space-y-6">
-      <div className="flex items-center justify-between">
+
+  return (
+    <div className="space-y-8 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="flex items-end justify-between animate-fade-up">
         <div>
-          <h2 className="text-2xl font-bold">My Properties</h2>
-          <p className="text-muted-foreground">Manage your property listings</p>
+          <p className="section-label mb-1.5">Portfolio</p>
+          <h1 className="font-display font-light text-[clamp(1.8rem,4vw,2.8rem)] leading-tight tracking-[-0.02em]">
+            My Properties
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {isLoading ? '—' : `${properties.length} listing${properties.length !== 1 ? 's' : ''}`}
+          </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={open => {
-        setIsDialogOpen(open);
-        if (!open) {
-          setEditingProperty(null);
-          setFormData(initialFormData);
-        }
-      }}>
+
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={open => {
+            setIsDialogOpen(open);
+            if (!open) { setEditingProperty(null); setFormData(initialFormData); }
+          }}
+        >
           <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" />Add Property</Button>
+            <Button className="bg-primary hover:bg-primary/90 font-medium gap-2 rounded-xl px-5">
+              <Plus className="w-4 h-4" />
+              Add Property
+            </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl">
             <DialogHeader>
-              <DialogTitle>{editingProperty ? 'Edit Property' : 'Add New Property'}</DialogTitle>
+              <DialogTitle className="font-display font-light text-2xl">
+                {editingProperty ? 'Edit Property' : 'List a New Property'}
+              </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-5 pt-2">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="property_type">Property Type *</Label>
-                  <Select value={formData.property_type} onValueChange={v => setFormData({
-                  ...formData,
-                  property_type: v
-                })}>
-                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                  <Label htmlFor="property_type" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Property Type *
+                  </Label>
+                  <Select
+                    value={formData.property_type}
+                    onValueChange={v => setFormData({ ...formData, property_type: v })}
+                  >
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Apartment">Apartment</SelectItem>
-                      <SelectItem value="House">House</SelectItem>
-                      <SelectItem value="Condo">Condo</SelectItem>
-                      <SelectItem value="Townhouse">Townhouse</SelectItem>
-                      <SelectItem value="Studio">Studio</SelectItem>
+                      {['Apartment', 'House', 'Condo', 'Townhouse', 'Studio'].map(t => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="availability_status">Status</Label>
-                  <Select value={formData.availability_status} onValueChange={v => setFormData({
-                  ...formData,
-                  availability_status: v
-                })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Label htmlFor="availability_status" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Status
+                  </Label>
+                  <Select
+                    value={formData.availability_status}
+                    onValueChange={v => setFormData({ ...formData, availability_status: v })}
+                  >
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Available">Available</SelectItem>
-                      <SelectItem value="Occupied">Occupied</SelectItem>
-                      <SelectItem value="Reserved">Reserved</SelectItem>
+                      {['Available', 'Occupied', 'Reserved'].map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="location">Location *</Label>
-                <Input id="location" value={formData.location} onChange={e => setFormData({
-                ...formData,
-                location: e.target.value
-              })} required placeholder="Enter full address" />
+                <Label htmlFor="location" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Location *
+                </Label>
+                <Input
+                  id="location"
+                  value={formData.location}
+                  onChange={e => setFormData({ ...formData, location: e.target.value })}
+                  required
+                  placeholder="Enter full address"
+                  className="h-10 rounded-xl"
+                />
               </div>
+
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="rental_price">Monthly Rent (RM) *</Label>
-                  <Input id="rental_price" type="number" step="0.01" min="0" value={formData.rental_price} onChange={e => setFormData({
-                  ...formData,
-                  rental_price: e.target.value
-                })} required />
+                  <Label htmlFor="rental_price" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Monthly Rent (RM) *
+                  </Label>
+                  <Input
+                    id="rental_price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.rental_price}
+                    onChange={e => setFormData({ ...formData, rental_price: e.target.value })}
+                    required
+                    className="h-10 rounded-xl"
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="num_bedroom">Bedrooms *</Label>
-                  <Input id="num_bedroom" type="number" min="0" value={formData.num_bedroom} onChange={e => setFormData({
-                  ...formData,
-                  num_bedroom: e.target.value
-                })} required />
+                  <Label htmlFor="num_bedroom" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Bedrooms *
+                  </Label>
+                  <Input
+                    id="num_bedroom"
+                    type="number"
+                    min="0"
+                    value={formData.num_bedroom}
+                    onChange={e => setFormData({ ...formData, num_bedroom: e.target.value })}
+                    required
+                    className="h-10 rounded-xl"
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="num_bathroom">Bathrooms *</Label>
-                  <Input id="num_bathroom" type="number" min="0" value={formData.num_bathroom} onChange={e => setFormData({
-                  ...formData,
-                  num_bathroom: e.target.value
-                })} required />
+                  <Label htmlFor="num_bathroom" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Bathrooms *
+                  </Label>
+                  <Input
+                    id="num_bathroom"
+                    type="number"
+                    min="0"
+                    value={formData.num_bathroom}
+                    onChange={e => setFormData({ ...formData, num_bathroom: e.target.value })}
+                    required
+                    className="h-10 rounded-xl"
+                  />
                 </div>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="property_size">Property Size (sq ft)</Label>
-                <Input id="property_size" type="number" step="0.01" min="0" value={formData.property_size} onChange={e => setFormData({
-                ...formData,
-                property_size: e.target.value
-              })} placeholder="Optional" />
+                <Label htmlFor="property_size" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Property Size (sq ft)
+                </Label>
+                <Input
+                  id="property_size"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.property_size}
+                  onChange={e => setFormData({ ...formData, property_size: e.target.value })}
+                  placeholder="Optional"
+                  className="h-10 rounded-xl"
+                />
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea id="description" value={formData.description} onChange={e => setFormData({
-                ...formData,
-                description: e.target.value
-              })} placeholder="Describe your property..." rows={3} />
+                <Label htmlFor="description" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Description
+                </Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={e => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Describe your property..."
+                  rows={3}
+                  className="rounded-xl resize-none"
+                />
               </div>
-              <PropertyPhotoUpload images={formData.images} onImagesChange={images => setFormData({
-              ...formData,
-              images
-            })} />
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : editingProperty ? 'Update' : 'Add Property'}</Button>
+
+              <PropertyPhotoUpload
+                images={formData.images}
+                onImagesChange={images => setFormData({ ...formData, images })}
+              />
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                  className="rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-primary hover:bg-primary/90 rounded-xl px-6"
+                >
+                  {isSubmitting ? 'Saving...' : editingProperty ? 'Update Property' : 'Add Property'}
+                </Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {properties.length === 0 ? <Card><CardContent className="flex flex-col items-center justify-center py-12"><p className="text-muted-foreground mb-4">You haven't added any properties yet</p><Button onClick={() => setIsDialogOpen(true)}><Plus className="w-4 h-4 mr-2" />Add Your First Property</Button></CardContent></Card> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {properties.map(property => <Card key={property.property_id} className="hover-lift overflow-hidden">
-              {property.images && property.images.length > 0 && <div className="aspect-video relative overflow-hidden">
-                  <img src={property.images[0]} alt={property.property_type} className="w-full h-full object-cover" />
-                  {property.images.length > 1 && <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                      <ImageIcon className="w-3 h-3" />
-                      +{property.images.length - 1}
-                    </div>}
-                </div>}
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{property.property_type}</CardTitle>
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                      <MapPin className="w-3 h-3" />
-                      <span className="line-clamp-1">{property.location}</span>
-                    </div>
+      {/* Property Grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="card-elevated overflow-hidden animate-pulse">
+              <div className="h-52 bg-muted" />
+              <div className="p-5 space-y-3">
+                <div className="h-4 bg-muted rounded-lg w-3/4" />
+                <div className="h-3 bg-muted rounded-lg w-1/2" />
+                <div className="h-6 bg-muted rounded-lg w-2/3 mt-2" />
+                <div className="h-3 bg-muted rounded-lg w-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : properties.length === 0 ? (
+        <div className="card-elevated p-16 text-center animate-fade-up">
+          <div className="w-16 h-16 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-4">
+            <Building2 className="w-7 h-7 text-primary/50" />
+          </div>
+          <h3 className="font-display font-light text-2xl mb-2">No properties yet</h3>
+          <p className="text-muted-foreground text-sm mb-6">
+            Start building your portfolio by listing your first property.
+          </p>
+          <Button
+            onClick={() => setIsDialogOpen(true)}
+            className="bg-primary hover:bg-primary/90 font-medium gap-2 rounded-xl"
+          >
+            <Plus className="w-4 h-4" />
+            Add Your First Property
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {properties.map((property, i) => (
+            <div
+              key={property.property_id}
+              className="property-card group animate-fade-up"
+              style={{ animationDelay: `${i * 0.06}s` }}
+            >
+              {/* Image */}
+              <div className="relative h-52 overflow-hidden bg-muted">
+                {property.images && property.images.length > 0 ? (
+                  <img
+                    src={property.images[0]}
+                    alt={property.property_type}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground/30">
+                    <ImageIcon className="w-12 h-12" />
                   </div>
-                  <Badge className={getStatusColor(property.availability_status || 'Available')}>{property.availability_status}</Badge>
+                )}
+                {property.images && property.images.length > 1 && (
+                  <div className="absolute bottom-3 right-3 bg-black/55 text-white text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-sm">
+                    <ImageIcon className="w-3 h-3" />
+                    +{property.images.length - 1}
+                  </div>
+                )}
+                <div className="absolute top-3 right-3">
+                  <Badge className={`text-xs border ${statusConfig[property.availability_status] || 'bg-muted text-muted-foreground border-border'}`}>
+                    {property.availability_status}
+                  </Badge>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-1 text-2xl font-bold text-primary">
-                  
-                  <span>RM {property.rental_price.toLocaleString()}</span>
-                  <span className="text-sm font-normal text-muted-foreground">/mo</span>
+              </div>
+
+              {/* Details */}
+              <div className="p-5 space-y-4">
+                <div>
+                  <h3 className="font-semibold text-base leading-tight">{property.property_type}</h3>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                    <MapPin className="w-3 h-3 shrink-0" />
+                    <span className="line-clamp-1">{property.location}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1"><Bed className="w-4 h-4" /><span>{property.num_bedroom} Bed</span></div>
-                  <div className="flex items-center gap-1"><Bath className="w-4 h-4" /><span>{property.num_bathroom} Bath</span></div>
-                  {property.property_size && <div className="flex items-center gap-1"><Ruler className="w-4 h-4" /><span>{property.property_size} sqft</span></div>}
+
+                <div className="flex items-end gap-1.5">
+                  <span className="font-display font-light text-[1.8rem] leading-none text-foreground">
+                    RM {property.rental_price.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-muted-foreground mb-0.5">/mo</span>
                 </div>
-                {property.description && <p className="text-sm text-muted-foreground line-clamp-2">{property.description}</p>}
-                <div className="flex gap-2 pt-2">
-                  <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEdit(property)}><Edit className="w-4 h-4 mr-1" />Edit</Button>
-                  <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive hover:text-destructive-foreground" onClick={() => handleDelete(property.property_id)}><Trash2 className="w-4 h-4" /></Button>
+
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Bed className="w-3.5 h-3.5" />{property.num_bedroom} Bed
+                  </span>
+                  <span className="text-border">·</span>
+                  <span className="flex items-center gap-1">
+                    <Bath className="w-3.5 h-3.5" />{property.num_bathroom} Bath
+                  </span>
+                  {property.property_size && (
+                    <>
+                      <span className="text-border">·</span>
+                      <span className="flex items-center gap-1">
+                        <Ruler className="w-3.5 h-3.5" />{property.property_size} ft²
+                      </span>
+                    </>
+                  )}
                 </div>
-              </CardContent>
-            </Card>)}
-        </div>}
-    </div>;
+
+                {property.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                    {property.description}
+                  </p>
+                )}
+
+                <div className="flex items-center gap-2 pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 rounded-xl gap-1.5 text-xs font-medium hover:bg-primary/5 hover:border-primary/30"
+                    onClick={() => handleEdit(property)}
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl text-destructive hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"
+                    onClick={() => handleDelete(property.property_id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 };
+
 export default OwnerProperties;

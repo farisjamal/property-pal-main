@@ -7,15 +7,34 @@ import bcrypt from 'bcryptjs';
  */
 export const encryptData = async (text: string): Promise<string> => {
   if (!text) return '';
-  const { data, error } = await supabase.functions.invoke('crypto-service', {
-    body: { action: 'encrypt', data: text }
-  });
-  if (error) {
-    console.error('Encryption failed:', error);
-    throw new Error('Failed to encrypt data');
+
+  const MAX_RETRIES = 3;
+  let lastError: any;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const { data, error } = await supabase.functions.invoke('crypto-service', {
+      body: { action: 'encrypt', data: text }
+    });
+
+    if (!error) {
+      // data may be an object {ciphertext, iv} (parsed JSON) or a string – normalise to string
+      if (typeof data === 'object' && data !== null) {
+        return JSON.stringify(data);
+      }
+      return data as string;
+    }
+
+    lastError = error;
+    console.warn(`Encryption attempt ${attempt} failed:`, error);
+
+    if (attempt < MAX_RETRIES) {
+      // Wait before retrying (500 ms, 1 s)
+      await new Promise(res => setTimeout(res, attempt * 500));
+    }
   }
-  // Return the JSON string containing {ciphertext, iv} for storage in TEXT column
-  return data;
+
+  console.error('Encryption failed after retries:', lastError);
+  throw new Error('Encryption service is temporarily unavailable. Please try again in a moment.');
 };
 
 /**

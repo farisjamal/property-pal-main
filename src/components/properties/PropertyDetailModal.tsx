@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from '@/components/ui/carousel';
-import { MapPin, Bed, Bath, DollarSign, Ruler, Calendar, ImageIcon, User, Phone, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin, Bed, Bath, Ruler, Calendar, ImageIcon, User, Phone, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Property {
   property_id: number;
@@ -38,117 +37,143 @@ const PropertyDetailModal = ({ property, open, onOpenChange, onBookViewing }: Pr
   const images = property.images || [];
   const hasImages = images.length > 0;
 
+  const prevImage = () => setCurrentImageIndex(i => (i - 1 + images.length) % images.length);
+  const nextImage = () => setCurrentImageIndex(i => (i + 1) % images.length);
+
+  const isAvailable = property.availability_status?.toLowerCase() === 'available';
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">{property.property_type}</DialogTitle>
-          <DialogDescription className="flex items-center gap-1">
-            <MapPin className="w-4 h-4" />
-            {property.location}
-          </DialogDescription>
-        </DialogHeader>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) setCurrentImageIndex(0); onOpenChange(v); }}>
+      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-0 gap-0 rounded-3xl [&>button]:z-50 [&>button]:text-white [&>button]:bg-black/30 [&>button]:hover:bg-black/50 [&>button]:rounded-full [&>button]:w-8 [&>button]:h-8 [&>button]:top-4 [&>button]:right-4">
 
-        {/* Image Gallery */}
-        <div className="relative">
+        {/* ── Hero Image ── */}
+        <div className="relative h-[48vh] min-h-72 overflow-hidden rounded-t-3xl bg-muted">
           {hasImages ? (
-            <div className="space-y-4">
-              {/* Main Carousel */}
-              <Carousel className="w-full">
-                <CarouselContent>
-                  {images.map((image, index) => (
-                    <CarouselItem key={index}>
-                      <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
-                        <img
-                          src={image}
-                          alt={`${property.property_type} - Photo ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </CarouselItem>
-                  ))}
-                </CarouselContent>
-                {images.length > 1 && (
-                  <>
-                    <CarouselPrevious className="left-2 bg-background/80 hover:bg-background" />
-                    <CarouselNext className="right-2 bg-background/80 hover:bg-background" />
-                  </>
-                )}
-              </Carousel>
-
-              {/* Thumbnail Strip */}
-              {images.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                  {images.map((image, index) => (
-                    <button
-                      key={index}
-                      className={`relative flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border-2 transition-all ${
-                        index === currentImageIndex
-                          ? 'border-primary ring-2 ring-primary/20'
-                          : 'border-transparent hover:border-muted-foreground/30'
-                      }`}
-                      onClick={() => setCurrentImageIndex(index)}
-                    >
-                      <img
-                        src={image}
-                        alt={`Thumbnail ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Image Counter */}
-              <p className="text-sm text-muted-foreground text-center">
-                {images.length} photo{images.length !== 1 ? 's' : ''} available
-              </p>
-            </div>
+            <img
+              src={images[currentImageIndex]}
+              alt={`${property.property_type} - Photo ${currentImageIndex + 1}`}
+              className="w-full h-full object-cover transition-opacity duration-300"
+            />
           ) : (
-            <div className="aspect-video rounded-lg bg-muted flex items-center justify-center">
-              <div className="text-center text-muted-foreground">
-                <ImageIcon className="w-16 h-16 mx-auto mb-2 opacity-50" />
-                <p>No photos available</p>
-              </div>
+            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+              <ImageIcon className="w-16 h-16 mb-3 opacity-30" />
+              <p className="text-sm opacity-60">No photos available</p>
             </div>
           )}
+
+          {/* Gradient overlays */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-transparent pointer-events-none" />
+
+          {/* Image navigation */}
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={prevImage}
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm flex items-center justify-center text-white transition-all hover:scale-110"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <button
+                onClick={nextImage}
+                className="absolute right-14 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm flex items-center justify-center text-white transition-all hover:scale-110"
+                aria-label="Next image"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+
+              {/* Image counter pill */}
+              <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm text-white text-xs font-medium px-3 py-1 rounded-full">
+                {currentImageIndex + 1} / {images.length}
+              </div>
+            </>
+          )}
+
+          {/* Property title overlay at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 p-6 pb-7">
+            <p className="section-label text-white/60 mb-1.5">For Rent</p>
+            <h2 className="font-display font-light text-[clamp(2rem,4vw,3rem)] leading-tight text-white">
+              {property.property_type}
+            </h2>
+            <div className="flex items-center gap-1.5 text-white/75 text-sm mt-1.5">
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
+              <span>{property.location}</span>
+            </div>
+          </div>
         </div>
 
-        {/* Property Details */}
-        <div className="space-y-6">
-          {/* Price & Status */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1 text-3xl font-bold text-primary">
-              <DollarSign className="w-7 h-7" />
-              <span>RM {property.rental_price.toLocaleString()}</span>
-              <span className="text-base font-normal text-muted-foreground">/month</span>
+        {/* ── Thumbnail Strip ── */}
+        {images.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto px-5 py-3 bg-muted/40 border-b border-border/40">
+            {images.map((img, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentImageIndex(i)}
+                className={`flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 transition-all duration-200 ${
+                  i === currentImageIndex
+                    ? 'border-primary shadow-md scale-105'
+                    : 'border-transparent opacity-50 hover:opacity-80 hover:border-border'
+                }`}
+              >
+                <img src={img} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* ── Content ── */}
+        <div className="px-6 md:px-8 py-8 space-y-8">
+
+          {/* Price + Availability */}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="section-label mb-2">Monthly Rental</p>
+              <div className="flex items-end gap-2">
+                <span className="font-display font-light text-[clamp(2.4rem,5vw,3.2rem)] leading-none text-foreground">
+                  RM {property.rental_price.toLocaleString()}
+                </span>
+                <span className="text-muted-foreground text-base mb-1">/mo</span>
+              </div>
             </div>
-            <Badge className="bg-green-500/10 text-green-500 border-green-500/20 text-sm px-3 py-1">
-              {property.availability_status}
+            <Badge
+              className={`mt-1 px-3 py-1 text-xs font-medium rounded-full border ${
+                isAvailable
+                  ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800'
+                  : 'bg-muted text-muted-foreground border-border'
+              }`}
+            >
+              {isAvailable ? 'Available' : property.availability_status}
             </Badge>
           </div>
 
-          {/* Features */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-              <Bed className="w-6 h-6 text-primary" />
+          {/* Feature Stats */}
+          <div className="grid grid-cols-3 gap-3 py-6 border-y border-border/50">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Bed className="w-5 h-5 text-primary" />
+              </div>
               <div>
-                <p className="text-xl font-semibold">{property.num_bedroom}</p>
-                <p className="text-sm text-muted-foreground">Bedroom{property.num_bedroom !== 1 ? 's' : ''}</p>
+                <p className="font-display font-medium text-2xl leading-none">{property.num_bedroom}</p>
+                <p className="text-xs text-muted-foreground mt-1">Bedroom{property.num_bedroom !== 1 ? 's' : ''}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-              <Bath className="w-6 h-6 text-primary" />
+            <div className="flex flex-col items-center gap-2 text-center border-x border-border/50">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Bath className="w-5 h-5 text-primary" />
+              </div>
               <div>
-                <p className="text-xl font-semibold">{property.num_bathroom}</p>
-                <p className="text-sm text-muted-foreground">Bathroom{property.num_bathroom !== 1 ? 's' : ''}</p>
+                <p className="font-display font-medium text-2xl leading-none">{property.num_bathroom}</p>
+                <p className="text-xs text-muted-foreground mt-1">Bathroom{property.num_bathroom !== 1 ? 's' : ''}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-              <Ruler className="w-6 h-6 text-primary" />
+            <div className="flex flex-col items-center gap-2 text-center">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Ruler className="w-5 h-5 text-primary" />
+              </div>
               <div>
-                <p className="text-xl font-semibold">{property.property_size || 'N/A'}</p>
-                <p className="text-sm text-muted-foreground">Sq Ft</p>
+                <p className="font-display font-medium text-2xl leading-none">{property.property_size || '—'}</p>
+                <p className="text-xs text-muted-foreground mt-1">Sq Ft</p>
               </div>
             </div>
           </div>
@@ -156,34 +181,45 @@ const PropertyDetailModal = ({ property, open, onOpenChange, onBookViewing }: Pr
           {/* Description */}
           {property.description && (
             <div>
-              <h4 className="font-semibold mb-2">Description</h4>
-              <p className="text-muted-foreground leading-relaxed">{property.description}</p>
+              <p className="section-label mb-3">About this Property</p>
+              <p className="text-muted-foreground leading-[1.75] text-[0.9375rem]">
+                {property.description}
+              </p>
             </div>
           )}
 
-          {/* Owner Info */}
-          <div className="p-4 bg-muted rounded-lg">
-            <h4 className="font-semibold mb-3">Listed By</h4>
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="w-6 h-6 text-primary" />
+          {/* Owner Card */}
+          <div className="card-elevated p-5 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <User className="w-5 h-5 text-primary" />
               </div>
-              <div>
-                <p className="font-medium">{property.property_owner?.name || 'Property Owner'}</p>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground mb-0.5">Listed by</p>
+                <p className="font-medium text-sm truncate">{property.property_owner?.name || 'Property Owner'}</p>
                 {property.property_owner?.contact_no && (
-                  <p className="text-sm text-muted-foreground flex items-center gap-1">
-                    <Phone className="w-3 h-3" />
-                    {property.property_owner.contact_no}
-                  </p>
+                  <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
+                    <Phone className="w-3 h-3 shrink-0" />
+                    <span>{property.property_owner.contact_no}</span>
+                  </div>
                 )}
+              </div>
+            </div>
+            <div className="shrink-0">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
               </div>
             </div>
           </div>
 
-          {/* Action Button */}
-          <Button className="w-full" size="lg" onClick={onBookViewing}>
-            <Calendar className="w-5 h-5 mr-2" />
-            Book Viewing Appointment
+          {/* CTA */}
+          <Button
+            className="w-full h-13 bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-base rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5"
+            onClick={onBookViewing}
+            disabled={!isAvailable}
+          >
+            <Calendar className="w-5 h-5 mr-2.5" />
+            {isAvailable ? 'Book a Viewing' : 'Not Available'}
           </Button>
         </div>
       </DialogContent>

@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, Mail, Lock, User, Phone } from 'lucide-react';
+import { Building2, Mail, Lock, User, Phone, CheckCircle, Home, Shield } from 'lucide-react';
 import { z } from 'zod';
 import { encryptData, hashPin } from '@/utils/security';
 import { logLogin, logFailedLogin } from '@/utils/auditLog';
@@ -217,7 +216,7 @@ const Auth = () => {
 
       // Note: The database trigger 'handle_new_user' automatically creates:
       // 1. users table record
-      // 2. user_roles record  
+      // 2. user_roles record
       // 3. Profile record (tenant/property_owner) based on role_id
 
       toast({
@@ -242,6 +241,8 @@ const Auth = () => {
         message = error.errors[0].message;
       } else if (error.message?.includes('already registered')) {
         message = 'This email is already registered. Please log in instead.';
+      } else if (error.message?.includes('temporarily unavailable')) {
+        message = error.message;
       }
 
       toast({
@@ -255,175 +256,275 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-float" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-accent/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1.5s' }} />
+    <div className="min-h-screen flex">
+      {/* ── Left panel: Brand identity ── */}
+      <div className="hidden lg:flex lg:w-5/12 xl:w-[42%] relative flex-col justify-between p-12 bg-mesh-dark overflow-hidden">
+        {/* Ambient glows */}
+        <div className="absolute top-1/4 -left-16 w-72 h-72 bg-primary/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 -right-8 w-56 h-56 bg-property-warm/12 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Right-edge gradient fade — blends seamlessly into the right panel */}
+        <div
+          className="absolute top-0 right-0 w-24 h-full pointer-events-none z-20"
+          style={{ background: 'linear-gradient(to right, transparent, hsl(var(--background)))' }}
+        />
+
+        {/* Logo */}
+        <div className="relative z-10">
+          <Link to="/" className="inline-flex items-center gap-3 group">
+            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
+              <Home className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <span className="text-white font-display font-semibold text-xl tracking-tight">PropertyPal</span>
+          </Link>
+        </div>
+
+        {/* Center content */}
+        <div className="relative z-10 space-y-7">
+          <h2 className="font-display font-light text-[clamp(2.8rem,5vw,4rem)] leading-[0.95] text-white">
+            Your perfect
+            <br />
+            <em className="text-primary not-italic">home</em> awaits.
+          </h2>
+          <p className="text-white/55 text-base leading-relaxed max-w-xs">
+            Browse verified properties, schedule viewings, and connect with trusted owners — all from one secure platform.
+          </p>
+
+          {/* Feature list */}
+          <div className="space-y-3.5">
+            {[
+              "Verified property listings",
+              "Instant appointment booking",
+              "AES-256 encrypted data",
+            ].map((feature) => (
+              <div key={feature} className="flex items-center gap-3">
+                <div className="w-5 h-5 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
+                  <CheckCircle className="w-3 h-3 text-primary" />
+                </div>
+                <span className="text-white/65 text-sm font-medium">{feature}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Security note */}
+          <div className="flex items-center gap-2.5 pt-2">
+            <Shield className="w-4 h-4 text-primary/70 shrink-0" />
+            <span className="text-white/35 text-xs">
+              All data encrypted at rest and in transit
+            </span>
+          </div>
+        </div>
+
+        {/* Bottom */}
+        <div className="relative z-10">
+          <p className="text-white/25 text-xs">© 2026 PropertyPal. All rights reserved.</p>
+        </div>
       </div>
 
-      <Card className="w-full max-w-md relative z-10 glass">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 rounded-full bg-gradient-primary">
-              <Building2 className="w-8 h-8 text-primary-foreground" />
+      {/* ── Right panel: Auth forms ── */}
+      <div className="flex-1 flex items-center justify-center p-6 md:p-12 bg-background overflow-y-auto">
+        <div className="w-full max-w-[420px]">
+          {/* Mobile logo */}
+          <Link to="/" className="lg:hidden mb-8 flex items-center gap-3 group w-fit">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
+              <Building2 className="w-4 h-4 text-primary-foreground" />
             </div>
-          </div>
-          <CardTitle className="text-2xl font-bold">Property Appointment System</CardTitle>
-          <CardDescription>Sign in to your account or create a new one</CardDescription>
-        </CardHeader>
-        <CardContent>
+            <span className="font-display font-semibold text-lg">PropertyPal</span>
+          </Link>
+
           <Tabs defaultValue="login">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="register">Register</TabsTrigger>
+            {/* Tab selector */}
+            <TabsList className="grid w-full grid-cols-2 h-11 bg-muted/50 p-1 mb-8">
+              <TabsTrigger value="login" className="rounded-md font-medium text-sm">
+                Sign In
+              </TabsTrigger>
+              <TabsTrigger value="register" className="rounded-md font-medium text-sm">
+                Create Account
+              </TabsTrigger>
             </TabsList>
 
+            {/* ── Login tab ── */}
             <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
+              <div className="mb-7">
+                <h1 className="text-2xl font-semibold text-foreground tracking-tight">Welcome back</h1>
+                <p className="text-muted-foreground text-sm mt-1.5">Sign in to your account to continue</p>
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="login-email" className="text-sm font-medium">Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="login-email"
                       type="email"
-                      placeholder="Enter your email"
+                      placeholder="you@example.com"
                       value={loginData.email}
                       onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                      className="pl-10"
+                      className="pl-10 h-11"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="login-password" className="text-sm font-medium">Password</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="login-password"
                       type="password"
                       placeholder="Enter your password"
                       value={loginData.password}
                       onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                      className="pl-10"
+                      className="pl-10 h-11"
                       required
                     />
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full bg-gradient-primary" disabled={isLoading || isLockedOut}>
-                  {isLockedOut ? `Locked out (${lockoutRemaining}s)` : isLoading ? 'Signing in...' : 'Sign In'}
+                {loginAttempts > 0 && !isLockedOut && (
+                  <p className="text-sm text-destructive font-medium">
+                    {MAX_LOGIN_ATTEMPTS - loginAttempts} attempt{MAX_LOGIN_ATTEMPTS - loginAttempts !== 1 ? 's' : ''} remaining
+                  </p>
+                )}
+
+                <Button
+                  type="submit"
+                  className="w-full h-11 font-medium bg-primary hover:bg-primary/90 mt-2"
+                  disabled={isLoading || isLockedOut}
+                >
+                  {isLockedOut
+                    ? `Locked out (${lockoutRemaining}s)`
+                    : isLoading
+                    ? 'Signing in...'
+                    : 'Sign In'}
                 </Button>
               </form>
             </TabsContent>
 
+            {/* ── Register tab ── */}
             <TabsContent value="register">
-              <form onSubmit={handleRegister} className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="register-name">Full Name</Label>
+              <div className="mb-7">
+                <h1 className="text-2xl font-semibold text-foreground tracking-tight">Create account</h1>
+                <p className="text-muted-foreground text-sm mt-1.5">Join thousands of users on PropertyPal</p>
+              </div>
+
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="register-name" className="text-sm font-medium">Full Name</Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="register-name"
                       type="text"
-                      placeholder="Enter your full name"
+                      placeholder="Your full name"
                       value={registerData.name}
                       onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
-                      className="pl-10"
+                      className="pl-10 h-11"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="register-email">Email</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="register-email" className="text-sm font-medium">Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="register-email"
                       type="email"
-                      placeholder="Enter your email"
+                      placeholder="you@example.com"
                       value={registerData.email}
                       onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                      className="pl-10"
+                      className="pl-10 h-11"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="register-password">Password</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="register-password" className="text-sm font-medium">Password</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="register-password"
                       type="password"
-                      placeholder="Create a password (min 6 characters)"
+                      placeholder="At least 6 characters"
                       value={registerData.password}
                       onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                      className="pl-10"
+                      className="pl-10 h-11"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="register-contact">Contact Number (Optional)</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="register-contact" className="text-sm font-medium">
+                    Contact Number{" "}
+                    <span className="text-muted-foreground font-normal">(optional)</span>
+                  </Label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="register-contact"
                       type="tel"
-                      placeholder="Enter your phone number"
+                      placeholder="+60 12-345 6789"
                       value={registerData.contactNo}
                       onChange={(e) => setRegisterData({ ...registerData, contactNo: e.target.value })}
-                      className="pl-10"
+                      className="pl-10 h-11"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="register-pin">Security PIN (6 Digits)</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="register-pin" className="text-sm font-medium">
+                    Security PIN{" "}
+                    <span className="text-muted-foreground font-normal">(6 digits)</span>
+                  </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="register-pin"
                       type="password"
                       maxLength={6}
-                      placeholder="Enter 6-digit PIN"
+                      placeholder="6-digit PIN"
                       value={registerData.securityPin}
                       onChange={(e) => setRegisterData({ ...registerData, securityPin: e.target.value })}
-                      className="pl-10"
+                      className="pl-10 h-11"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="register-role">Register as</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="register-role" className="text-sm font-medium">I am a</Label>
                   <Select
                     value={registerData.roleId.toString()}
                     onValueChange={(value) => setRegisterData({ ...registerData, roleId: parseInt(value) })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11">
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="2">Property Owner</SelectItem>
-                      <SelectItem value="3">Tenant</SelectItem>
+                      <SelectItem value="3">Tenant / Looking to Rent</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <Button type="submit" className="w-full bg-gradient-primary" disabled={isLoading}>
+                <Button
+                  type="submit"
+                  className="w-full h-11 font-medium bg-primary hover:bg-primary/90 mt-2"
+                  disabled={isLoading}
+                >
                   {isLoading ? 'Creating account...' : 'Create Account'}
                 </Button>
               </form>
             </TabsContent>
           </Tabs>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };
