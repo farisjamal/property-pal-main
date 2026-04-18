@@ -11,12 +11,13 @@
  * - batch_decrypt: Decrypts multiple ciphertexts in parallel (max 50)
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 
-// Allowed origins for CORS - add your production domain here
+// Allowed origins for CORS
 const ALLOWED_ORIGINS = [
   'http://localhost:8080',
   'http://localhost:5173',
+  ...(Deno.env.get('PRODUCTION_URL') ? [Deno.env.get('PRODUCTION_URL')!] : []),
 ];
 
 function getCorsHeaders(req: Request) {

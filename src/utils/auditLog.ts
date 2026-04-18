@@ -304,6 +304,23 @@ export const logPropertyDeletion = async (
 };
 
 /**
+ * Logs MFA events (enrollment, verification, unenrollment)
+ */
+export const logMFAEvent = async (
+  action: 'enrolled' | 'verified' | 'unenrolled',
+  userId?: string
+): Promise<void> => {
+  await logAuditEvent({
+    user_id: userId,
+    action_type: 'UPDATE',
+    resource_type: 'AUTH',
+    description: `MFA ${action}`,
+    severity: action === 'unenrolled' ? 'WARNING' : 'INFO',
+    metadata: { mfa_action: action },
+  });
+};
+
+/**
  * Logs critical security event
  */
 export const logSecurityEvent = async (

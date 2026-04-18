@@ -7,12 +7,13 @@
  * Requires a valid JWT from an admin user (role_id: 1).
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 
-// Allowed origins for CORS - add your production domain here
+// Allowed origins for CORS
 const ALLOWED_ORIGINS = [
   'http://localhost:8080',
   'http://localhost:5173',
+  ...(Deno.env.get('PRODUCTION_URL') ? [Deno.env.get('PRODUCTION_URL')!] : []),
 ];
 
 function getCorsHeaders(req: Request) {
@@ -99,6 +100,21 @@ Deno.serve(async (req) => {
     if (![2, 3].includes(body.role_id)) {
       return new Response(
         JSON.stringify({ error: 'Invalid role_id. Use 2 (Property Owner) or 3 (Tenant)' }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    // Server-side password policy enforcement
+    const pwd = body.password;
+    const pwdErrors: string[] = [];
+    if (pwd.length < 8) pwdErrors.push('at least 8 characters');
+    if (!/[A-Z]/.test(pwd)) pwdErrors.push('one uppercase letter');
+    if (!/[a-z]/.test(pwd)) pwdErrors.push('one lowercase letter');
+    if (!/[0-9]/.test(pwd)) pwdErrors.push('one number');
+    if (!/[!@#$%^&*()_+\-=\[\]{}|;:'",.<>?/~`\\]/.test(pwd)) pwdErrors.push('one special character');
+    if (pwdErrors.length > 0) {
+      return new Response(
+        JSON.stringify({ error: `Password too weak. Requires: ${pwdErrors.join(', ')}` }),
         { status: 400, headers: CORS_HEADERS }
       );
     }
