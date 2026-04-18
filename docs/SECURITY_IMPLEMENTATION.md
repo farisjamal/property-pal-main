@@ -2,11 +2,11 @@
 
 ## Overview
 
-This document outlines the comprehensive security enhancements implemented in the PropertyPal system, including data encryption, audit logging, and security best practices.
+This document outlines the comprehensive security architecture of the PropertyPal system, including server-side encryption, MFA, rate limiting, RBAC, audit logging, and security best practices.
 
-## Implementation Date
+## Last Updated
 
-January 17, 2026
+April 5, 2026 (originally January 17, 2026)
 
 ## 1. Audit Logging System
 
@@ -55,17 +55,29 @@ Key audit logging functions:
 
 ### Encryption Standards
 
-**Algorithm:** AES-256 (via CryptoJS)
-**Password Hashing:** Bcrypt (salt rounds: 10)
-**Encryption Key:** Stored in `.env` as `VITE_ENCRYPTION_KEY`
+**Algorithm:** AES-256-GCM via Web Crypto API (server-side)
+**Runtime:** Supabase Edge Function (`crypto-service`)
+**Password Hashing:** Bcrypt (salt rounds: 10, client-side for security PIN)
+**Encryption Key:** Stored as Edge Function secret (`ENCRYPTION_KEY`) — never exposed to the client
 
-**Security Functions:** `src/utils/security.ts`
+> **Architecture change (Feb 2026):** Encryption was migrated from client-side CryptoJS to a server-side Supabase Edge Function. The `VITE_ENCRYPTION_KEY` environment variable has been removed. All encrypt/decrypt operations now route through the `crypto-service` Edge Function.
+
+**Client Wrapper:** `src/utils/security.ts`
 
 ```typescript
-encryptData(text: string): string  // AES encryption
-decryptData(ciphertext: string): string  // AES decryption
-hashPin(pin: string): Promise<string>  // Bcrypt hashing
+encryptData(text: string): Promise<string>   // Calls crypto-service Edge Function (encrypt)
+decryptData(ciphertext: string): Promise<string>  // Calls crypto-service Edge Function (decrypt)
+batchDecrypt(ciphertexts: (string|null)[]): Promise<(string|null)[]>  // Batch decrypt (max 50)
+hashPin(pin: string): Promise<string>         // Bcrypt hashing (client-side)
 ```
+
+**Edge Function:** `supabase/functions/crypto-service/index.ts`
+
+| Action | Auth Required | Description |
+|--------|--------------|-------------|
+| `encrypt` | No (needed during registration) | Encrypts plaintext → `{ciphertext, iv}` JSON |
+| `decrypt` | Yes (JWT) | Decrypts `{ciphertext, iv}` → plaintext |
+| `batch_decrypt` | Yes (JWT) | Decrypts up to 50 ciphertexts in parallel |
 
 ### Fields Encrypted
 
@@ -78,81 +90,82 @@ hashPin(pin: string): Promise<string>  // Bcrypt hashing
 | email | all tables | ❌ Plain text (required for auth) |
 | date_of_birth | all user tables | ❌ Plain text (low sensitivity) |
 
-## 3. Files Modified
+## 3. Supabase Edge Functions
 
-### Profile Pages (Users encrypt their own data)
+### crypto-service
+- **Purpose:** Server-side AES-256-GCM encryption/decryption
+- **Auth:** JWT required for decrypt/batch_decrypt; encrypt is unauthenticated (registration flow)
+- **Key:** `ENCRYPTION_KEY` (Edge Function secret, never exposed to client)
+- **File:** `supabase/functions/crypto-service/index.ts`
 
-**1. TenantProfile.tsx** ✅
-- **Decrypt on fetch:** contact_no, ic_no
-- **Encrypt on save:** contact_no, ic_no
-- **Audit logging:** Logs sensitive data access and profile updates
-- Lines modified: 12-13, 72-91, 142-180
+### admin-create-user
+- **Purpose:** Creates new users via Supabase Admin API without affecting the admin's session
+- **Auth:** JWT required, caller must have admin role (`role_id: 1`)
+- **Validation:** Server-side password policy enforcement (8+ chars, upper, lower, digit, special)
+- **File:** `supabase/functions/admin-create-user/index.ts`
 
-**2. OwnerProfile.tsx** ✅
-- **Decrypt on fetch:** contact_no, ic_no
-- **Encrypt on save:** contact_no, ic_no
-- **Audit logging:** Logs sensitive data access and profile updates
-- Lines modified: 11-12, 57-78, 86-124
+### rate-limiter
+- **Purpose:** Server-side rate limiting using sliding window algorithm
+- **Storage:** `rate_limits` table (service_role only)
+- **Actions:** `login` (5 attempts/5 min), `password_reset`, `registration`
+- **Operations:** `check`, `record`, `reset`
+- **File:** `supabase/functions/rate-limiter/index.ts`
 
-### Admin Pages (Admins manage user data)
+## 4. Components Using Encryption
 
-**3. AdminUsers.tsx** ✅
-- **Decrypt on fetch:** contact_no (for display in table)
-- **Encrypt on save:** contact_no (when creating/updating tenants)
-- **Audit logging:**
-  - Logs sensitive data access when viewing tenant list
-  - Logs user creation when creating new tenant
-  - Logs user deletion when deleting tenant
-- Lines modified: 10-12, 44-88, 94-169, 197-224
+### Profile Pages (encrypt/decrypt via Edge Function)
 
-**4. AdminPropertyOwners.tsx** ✅
-- **Decrypt on fetch:** contact_no, ic_no (for display in table)
-- **Encrypt on save:** contact_no, ic_no (when creating/updating owners)
-- **Audit logging:**
-  - Logs sensitive data access when viewing owner list
-  - Logs user creation when creating new owner
-  - Logs user deletion when deleting owner
-- Lines modified: 11-13, 47-114, 120-199, 227-253
+| Component | Encrypt on Save | Decrypt on Fetch | Audit Logging |
+|-----------|----------------|------------------|---------------|
+| `TenantProfile.tsx` | contact_no, ic_no | contact_no, ic_no | ✅ |
+| `OwnerProfile.tsx` | contact_no, ic_no | contact_no, ic_no | ✅ |
+| `AdminUsers.tsx` | contact_no | contact_no | ✅ |
+| `AdminPropertyOwners.tsx` | contact_no, ic_no | contact_no, ic_no | ✅ |
+| `Auth.tsx` | contact_no (registration) | — | ✅ |
+| `TenantAppointments.tsx` | — | contact_no | ✅ |
+| `OwnerAppointments.tsx` | — | contact_no | ✅ |
 
-### Authentication
+## 5. Authentication & Access Control
 
-**5. Auth.tsx** (Already partially implemented)
-- **Existing:** Encrypts contact_no during registration
-- **Existing:** Hashes security PIN with bcrypt
-- **Status:** No changes needed - already secure
+### Multi-Factor Authentication (MFA)
+- **Type:** TOTP (Time-based One-Time Password)
+- **Provider:** Supabase Auth MFA
+- **Components:**
+  - `src/components/auth/MFASetup.tsx` — QR code enrollment flow
+  - `src/components/auth/MFAVerify.tsx` — Code verification during login
+  - `src/components/auth/MFASection.tsx` — Profile page enable/disable toggle
+- **Available to:** All user roles (admin, owner, tenant)
+- **Enforcement:** Optional per-user; can be enabled from profile settings
 
-## 4. Files NOT Modified (Lower Priority)
+### Password Policy
+- **Validation:** `src/utils/passwordValidation.ts`
+- **Requirements:** 8+ characters, uppercase, lowercase, digit, special character
+- **Enforced at:**
+  - Client-side: Registration form, password reset form
+  - Server-side: `admin-create-user` Edge Function
+- **Password Reset:** Dedicated `/reset-password` page with email-based flow
 
-### Appointment Pages
+### Rate Limiting
+- **Implementation:** `rate-limiter` Edge Function with `rate_limits` DB table
+- **Protected actions:** Login, registration, password reset
+- **Default limits:** 5 attempts per 5-minute sliding window
+- **Behavior:** Counter resets on successful login
 
-These files display encrypted contact numbers without decryption. This is a **cosmetic issue** - data is secure, but users see ciphertext instead of phone numbers.
+### Role-Based Access Control (RBAC)
+- **Roles:** Admin (1), Property Owner (2), Tenant (3)
+- **Enforced at:**
+  - Route level: `ProtectedRoute` component with `allowedRoles` prop
+  - Database level: RLS policies with `has_role_id()` function
+  - Edge Function level: JWT role verification (admin-create-user)
+  - Application level: `useAuth` hook with `userProfile.roleId`
+- **Migration:** `supabase/migrations/20260405000000_rbac_hardening.sql`
 
-**Impact:** Medium - UX issue, not security issue
+## 6. Security Best Practices Implemented
 
-**Files:**
-- `TenantAppointments.tsx` - Tenants see encrypted owner contact numbers
-- `OwnerAppointments.tsx` - Owners see encrypted tenant contact numbers
-- `PropertyDetailModal.tsx` - Property details show encrypted owner contact
-- `TenantProperties.tsx` - Property listings show encrypted owner contact
-
-**Recommended Fix:**
-Add decryption in the component before rendering:
-
-```typescript
-import { decryptData } from '@/utils/security';
-
-// In component:
-const decryptedContact = appointment.property_owner?.contact_no
-  ? decryptData(appointment.property_owner.contact_no)
-  : 'N/A';
-```
-
-## 5. Security Best Practices Implemented
-
-### ✅ Encryption at Rest
-- All sensitive PII (IC numbers, contact numbers) encrypted before storage
-- Encryption keys stored securely in environment variables
-- AES-256 encryption standard
+### ✅ Server-Side Encryption
+- All sensitive PII encrypted via Supabase Edge Function (never in browser)
+- Encryption key stored as Edge Function secret (not in client bundle)
+- AES-256-GCM with random IV per encryption operation
 
 ### ✅ Encryption in Transit
 - HTTPS enforced by Supabase
@@ -174,12 +187,24 @@ const decryptedContact = appointment.property_owner?.contact_no
 ### ✅ Password Security
 - Passwords managed by Supabase Auth (industry-standard hashing)
 - Security PINs hashed with bcrypt (salt rounds: 10)
+- Strong password policy enforced client-side and server-side
 - No plaintext passwords stored anywhere
+
+### ✅ Multi-Factor Authentication
+- TOTP-based MFA via Supabase Auth
+- Optional per-user enrollment
+- QR code setup with authenticator app support
+
+### ✅ Rate Limiting
+- Server-side sliding window rate limiting
+- Protects login, registration, and password reset endpoints
+- Automatic counter reset on successful authentication
 
 ### ✅ Access Control
 - Role-Based Access Control (RBAC) enforced at:
   - Route level (ProtectedRoute component)
-  - Database level (RLS policies)
+  - Database level (RLS policies + `user_roles` table)
+  - Edge Function level (JWT verification)
   - Application level (useAuth hook)
 
 ## 6. Compliance & Standards
@@ -196,25 +221,31 @@ const decryptedContact = appointment.property_owner?.contact_no
 
 ## 7. Environment Variables
 
-**Required in `.env`:**
+### Client-side (`.env`)
 
-```env
-VITE_ENCRYPTION_KEY="your-strong-random-key-here"
-VITE_SUPABASE_URL="your-supabase-url"
-VITE_SUPABASE_PUBLISHABLE_KEY="your-supabase-anon-key"
-```
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_SUPABASE_URL` | Yes | Supabase project URL |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes | Supabase anon/public key |
+| `VITE_SUPABASE_PROJECT_ID` | Yes | Supabase project reference ID |
+| `VITE_N8N_NEW_BOOKING_WEBHOOK` | Yes | n8n webhook URL for new appointments |
+| `VITE_N8N_STATUS_WEBHOOK` | Yes | n8n webhook URL for status updates |
+| `VITE_N8N_WEBHOOK_SECRET` | Yes | HMAC secret for authenticating webhook calls |
+
+### Server-side (Edge Function Secrets)
+
+| Secret | Used By | Description |
+|--------|---------|-------------|
+| `ENCRYPTION_KEY` | crypto-service | AES-256-GCM encryption key (never exposed to client) |
+| `SUPABASE_SERVICE_ROLE_KEY` | admin-create-user, rate-limiter | Supabase service role key for admin operations |
+| `SUPABASE_URL` | All Edge Functions | Auto-set by Supabase |
+| `SUPABASE_ANON_KEY` | crypto-service, admin-create-user | Auto-set by Supabase |
 
 **Security Recommendations:**
-1. **Generate strong encryption key:**
-   ```bash
-   openssl rand -base64 32
-   ```
-
+1. **Generate strong encryption key:** `openssl rand -base64 32`
 2. **Never commit `.env` to version control**
-
 3. **Use different keys for dev/staging/production**
-
-4. **Implement key rotation policy** (every 90 days)
+4. **`VITE_ENCRYPTION_KEY` has been removed** — encryption is now server-side only
 
 ## 8. Audit Log Usage
 
@@ -316,95 +347,70 @@ AND tablename IN ('audit_log', 'tenant', 'property_owner');
 
 ## 10. Migration Instructions
 
-### Step 1: Apply Database Migration
+### Step 1: Apply Database Migrations
 
 ```bash
 # If using Supabase CLI
 supabase db push
 
-# Or apply manually via Supabase Dashboard > SQL Editor:
-# Copy contents of supabase/migrations/20260117000000_audit_log_system.sql
+# Key migrations (in order):
+# 20260117000000_audit_log_system.sql         — Audit log table + triggers
+# 20260405000000_rbac_hardening.sql           — RBAC with user_roles table
+# 20260405000001_rate_limiting.sql            — Rate limits table
 ```
 
-### Step 2: Update Environment Variables
+### Step 2: Deploy Edge Functions
 
 ```bash
-# Generate strong encryption key
-openssl rand -base64 32
-
-# Add to .env (if not already present)
-echo "VITE_ENCRYPTION_KEY=<generated-key>" >> .env
+supabase functions deploy crypto-service
+supabase functions deploy admin-create-user
+supabase functions deploy rate-limiter
 ```
 
-### Step 3: Deploy Application
+### Step 3: Set Edge Function Secrets
+
+```bash
+supabase secrets set ENCRYPTION_KEY="$(openssl rand -base64 32)"
+# SUPABASE_URL and SUPABASE_ANON_KEY are auto-set
+# SUPABASE_SERVICE_ROLE_KEY must be set for admin-create-user and rate-limiter
+```
+
+### Step 4: Deploy Application
 
 ```bash
 npm run build
 # Deploy to your hosting platform
 ```
 
-### Step 4: Data Migration (If existing data)
-
-**WARNING:** If you have existing unencrypted data in production:
-
-```sql
--- Backup data first!
-CREATE TABLE tenant_backup AS SELECT * FROM tenant;
-
--- Then encrypt existing data (use a backend script, NOT SQL)
--- This should be done via application code using encryptData() function
-```
-
 ## 11. Known Issues & Limitations
 
 ### Current Limitations
 
-1. **Appointment Contact Display** ❌
-   - Contact numbers in appointments are not decrypted
-   - **Impact:** Users see encrypted ciphertext
-   - **Risk:** Low (cosmetic issue, data is secure)
-   - **Fix:** Add decryption in appointment components
-
-2. **Property Detail Modal** ❌
-   - Owner contact numbers not decrypted
-   - **Impact:** Same as above
-   - **Fix:** Add decryption in PropertyDetailModal
-
-3. **Email Not Encrypted** ⚠️
+1. **Email Not Encrypted** ⚠️
    - Emails stored in plain text
    - **Reason:** Required for authentication and notifications
    - **Risk:** Low (emails are semi-public)
    - **Mitigation:** RLS policies protect email access
 
-4. **Client-Side Encryption** ⚠️
-   - Encryption happens in browser (JavaScript)
-   - **Risk:** Encryption key visible in bundle
-   - **Mitigation:**
-     - RLS policies provide server-side protection
-     - Consider server-side encryption for high-security needs
+2. **MFA Not Enforced** ⚠️
+   - MFA is optional (user-enabled)
+   - **Reason:** Usability trade-off for FYP scope
+   - **Risk:** Low (available for security-conscious users)
+
+### Completed Enhancements (formerly "Future")
+
+- ✅ **Server-Side Encryption** — Migrated to Edge Function (Feb 2026)
+- ✅ **Multi-Factor Authentication** — TOTP via Supabase Auth MFA (Apr 2026)
+- ✅ **Rate Limiting** — Server-side sliding window (Apr 2026)
+- ✅ **RBAC Hardening** — Database-level role enforcement (Apr 2026)
+- ✅ **Password Policy** — Client + server validation (Apr 2026)
 
 ### Future Enhancements
 
-1. **Server-Side Encryption**
-   - Move encryption to Supabase Edge Functions
-   - Keep encryption keys server-side only
-
-2. **Key Rotation**
-   - Implement automatic key rotation
-   - Re-encrypt data with new keys periodically
-
-3. **Multi-Factor Authentication (MFA)**
-   - Add MFA for admin accounts
-   - Use Supabase Auth MFA feature
-
-4. **Advanced Audit Features**
-   - Real-time security alerts
-   - Anomaly detection (unusual access patterns)
-   - Automated security reports
-
-5. **Data Masking**
-   - Partial masking of IC/contact in UI (show last 4 digits)
-   - Full decrypt only when needed
+1. **Key Rotation** — Automatic encryption key rotation with re-encryption
+2. **Advanced Audit Features** — Real-time alerts, anomaly detection
+3. **Data Masking** — Partial masking of IC/contact in UI (show last 4 digits)
+4. **MFA Enforcement** — Mandatory MFA for admin accounts
 
 ## 12. Maintenance
 
@@ -434,9 +440,17 @@ CREATE TABLE tenant_backup AS SELECT * FROM tenant;
 
 ### For Developers
 
-- Encryption utilities: [src/utils/security.ts](src/utils/security.ts)
-- Audit utilities: [src/utils/auditLog.ts](src/utils/auditLog.ts)
-- Database schema: [supabase/migrations/20260117000000_audit_log_system.sql](supabase/migrations/20260117000000_audit_log_system.sql)
+- Encryption client wrapper: `src/utils/security.ts`
+- Encryption Edge Function: `supabase/functions/crypto-service/index.ts`
+- Admin user creation: `supabase/functions/admin-create-user/index.ts`
+- Rate limiter: `supabase/functions/rate-limiter/index.ts`
+- Password validation: `src/utils/passwordValidation.ts`
+- Audit utilities: `src/utils/auditLog.ts`
+- MFA components: `src/components/auth/MFASetup.tsx`, `MFAVerify.tsx`, `MFASection.tsx`
+- Auth hook: `src/hooks/useAuth.ts`
+- Password reset: `src/pages/ResetPassword.tsx`
+- RBAC migration: `supabase/migrations/20260405000000_rbac_hardening.sql`
+- Rate limit migration: `supabase/migrations/20260405000001_rate_limiting.sql`
 
 ### For System Administrators
 
@@ -446,18 +460,22 @@ CREATE TABLE tenant_backup AS SELECT * FROM tenant;
 
 ### For Compliance Officers
 
-- Data protection: All PII encrypted at rest
+- Data protection: All PII encrypted at rest via server-side Edge Function
 - Audit trail: Complete audit history in audit_log table
-- Access controls: RBAC enforced at all levels
+- Access controls: RBAC enforced at route, database, Edge Function, and app levels
+- Authentication: MFA available, rate limiting active, strong password policy
 - Data retention: Audit logs retained for 1 year (configurable)
 
 ---
 
 ## Summary
 
-✅ **Encryption:** IC numbers and contact numbers encrypted across all tables
+✅ **Server-Side Encryption:** AES-256-GCM via Edge Function — key never exposed to client
+✅ **MFA:** TOTP-based multi-factor authentication via Supabase Auth
+✅ **Rate Limiting:** Server-side sliding window for login, registration, password reset
+✅ **RBAC:** Role-based access control at route, database, Edge Function, and app levels
+✅ **Password Policy:** Strong password requirements enforced client-side and server-side
 ✅ **Audit Logging:** Comprehensive audit trail for all sensitive operations
-✅ **Access Control:** Role-based permissions enforced at route, app, and DB levels
 ✅ **Compliance:** GDPR/PDPA-ready with encrypted PII and audit trails
 ✅ **Best Practices:** Industry-standard encryption, password hashing, and security controls
 

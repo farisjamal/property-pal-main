@@ -26,6 +26,7 @@ supabase/functions/.env
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea
 .DS_Store
 *.suo
@@ -33,3 +34,7 @@ supabase/functions/.env
 *.njsproj
 *.sln
 *.sw?
+
+# Local scratchpads and planning notes
+images.txt
+.claude/plan/
