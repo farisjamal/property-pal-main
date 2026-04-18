@@ -38,3 +38,6 @@ supabase/functions/.env
 # Local scratchpads and planning notes
 images.txt
 .claude/plan/
+
+# Claude Code project instructions (local-only; do not publish)
+CLAUDE.md
