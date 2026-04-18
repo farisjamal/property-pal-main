@@ -196,6 +196,14 @@ const TenantProperties = () => {
       });
       return;
     }
+    if (bookingData.date < getTomorrowDate()) {
+      toast({
+        title: "Error",
+        description: "Appointment date must be tomorrow or later",
+        variant: "destructive"
+      });
+      return;
+    }
     setIsBooking(true);
     try {
       const {
