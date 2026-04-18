@@ -81,7 +81,7 @@ const OwnerAppointments = () => {
           if (appointment.tenant?.contact_no) {
             const decryptedContactNo = await decryptData(appointment.tenant.contact_no);
             // Log sensitive data access
-            logSensitiveDataAccess('TENANT', appointment.tenant.tenant_id.toString(), ['contact_no']);
+            await logSensitiveDataAccess('TENANT', appointment.tenant.tenant_id.toString(), ['contact_no']);
             return {
               ...appointment,
               tenant: {
@@ -103,7 +103,7 @@ const OwnerAppointments = () => {
   };
 
   const handleAction = async () => {
-    if (!selectedAppointment || !actionDialog.type) return;
+    if (!selectedAppointment || !actionDialog.type || !ownerId) return;
 
     setIsProcessing(true);
     try {

@@ -18,11 +18,24 @@ interface QuickReply {
     value: string;
 }
 
+interface ChatProperty {
+    property_id: number;
+    property_type: string;
+    location: string;
+    rental_price: number;
+    num_bedroom: number;
+    num_bathroom: number;
+    property_size: number | null;
+    description: string | null;
+    availability_status: string;
+    images: string[] | null;
+}
+
 interface Message {
     id: string;
     role: "user" | "bot";
     content: string;
-    relatedProperties?: any[];
+    relatedProperties?: ChatProperty[];
     quickReplies?: QuickReply[];
 }
 
@@ -34,7 +47,6 @@ interface BookingContext {
         property_id: number;
         property_type: string;
         location: string;
-        owner_id: number;
     };
     date?: string;
     time?: string;
@@ -85,25 +97,27 @@ const isBookingIntent = (text: string) =>
 
 /**
  * Accepts ISO dates (2026-03-15), "March 15", "15 March", "15/3/2026", etc.
- * Returns ISO string if valid future date, otherwise null.
+ * Returns { date: ISO string } on success, { error: "past" | "invalid" } on failure.
  */
-const parseDate = (text: string): string | null => {
+const parseDate = (text: string): { date: string } | { error: "past" | "invalid" } => {
     const trimmed = text.trim();
+    const todayStr = new Date().toISOString().split("T")[0]; // compare dates only
 
     // ISO format: 2026-03-15
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
         const d = new Date(trimmed);
-        if (!isNaN(d.getTime()) && d >= new Date()) return trimmed;
+        if (isNaN(d.getTime())) return { error: "invalid" };
+        return trimmed >= todayStr ? { date: trimmed } : { error: "past" };
     }
 
     // Try "March 15" or "15 March" — append current year if missing
-    const withYear = /\d{4}/.test(trimmed) ? trimmed : `${trimmed} 2026`;
+    const currentYear = new Date().getFullYear();
+    const withYear = /\d{4}/.test(trimmed) ? trimmed : `${trimmed} ${currentYear}`;
     const parsed = new Date(withYear);
-    if (!isNaN(parsed.getTime()) && parsed >= new Date()) {
-        return parsed.toISOString().split("T")[0];
-    }
+    if (isNaN(parsed.getTime())) return { error: "invalid" };
 
-    return null;
+    const iso = parsed.toISOString().split("T")[0];
+    return iso >= todayStr ? { date: iso } : { error: "past" };
 };
 
 // ---------------------------------------------------------------------------
@@ -137,6 +151,28 @@ const PropertyChatbot = () => {
         if (isOpen) checkAuth();
     }, [isOpen]);
 
+    // Keep auth state in sync with Supabase session changes (login/logout)
+    useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+                setIsAuthenticated(true);
+                supabase
+                    .from("tenant")
+                    .select("tenant_id")
+                    .eq("user_id", session.user.id)
+                    .maybeSingle()
+                    .then(({ data }) => {
+                        setTenantId(data?.tenant_id ?? null);
+                    });
+            } else {
+                setIsAuthenticated(false);
+                setTenantId(null);
+                setBooking({ step: "idle" });
+            }
+        });
+        return () => subscription.unsubscribe();
+    }, []);
+
     const checkAuth = async () => {
         const {
             data: { session },
@@ -169,7 +205,7 @@ const PropertyChatbot = () => {
     // ---------------------------------------------------------------------------
 
     /** Called when user sends a message with booking intent. */
-    const startBookingFlow = async (recentProperties: any[]) => {
+    const startBookingFlow = async (recentProperties: ChatProperty[]) => {
         if (!isAuthenticated) {
             addBotMessage(
                 "You need to be logged in to book a viewing appointment.",
@@ -218,10 +254,18 @@ const PropertyChatbot = () => {
     /** Creates the appointment record in Supabase and triggers n8n. */
     const createAppointment = async (
         propertyId: number,
-        ownerId: number,
         date: string,
         time: string
     ) => {
+        // Fetch owner_id server-side to avoid relying on client-supplied data
+        const { data: propData, error: propError } = await supabase
+            .from("property")
+            .select("owner_id")
+            .eq("property_id", propertyId)
+            .single();
+
+        if (propError || !propData) throw propError || new Error("Property not found");
+
         const { data, error } = await supabase
             .from("appointment")
             .insert({
@@ -230,7 +274,7 @@ const PropertyChatbot = () => {
                 status: "pending",
                 tenant_id: tenantId,
                 property_id: propertyId,
-                owner_id: ownerId,
+                owner_id: propData.owner_id,
             })
             .select("appointment_id")
             .single();
@@ -268,7 +312,6 @@ const PropertyChatbot = () => {
                     property_id: selected.property_id,
                     property_type: selected.property_type,
                     location: selected.location,
-                    owner_id: selected.owner_id,
                 },
             });
 
@@ -301,7 +344,6 @@ const PropertyChatbot = () => {
             try {
                 const newAppt = await createAppointment(
                     booking.property.property_id,
-                    booking.property.owner_id,
                     booking.date,
                     booking.time
                 );
@@ -331,13 +373,16 @@ const PropertyChatbot = () => {
     // ---------------------------------------------------------------------------
 
     const handleBookingDateInput = async (text: string) => {
-        const date = parseDate(text);
-        if (!date) {
+        const result = parseDate(text);
+        if ("error" in result) {
             addBotMessage(
-                "I couldn't understand that date. Please use a format like 2026-03-15 or 'March 15'."
+                result.error === "past"
+                    ? "That date is in the past. Please pick a future date."
+                    : "I couldn't understand that date. Please use a format like 2026-04-15 or 'April 15'."
             );
             return;
         }
+        const date = result.date;
 
         setIsTyping(true);
         try {
@@ -357,6 +402,8 @@ const PropertyChatbot = () => {
             addBotMessage(`Available times on ${date}. Pick a slot:`, {
                 quickReplies: available.map((slot) => ({ label: slot, value: slot })),
             });
+        } catch {
+            addBotMessage("Sorry, I couldn't check availability. Please try again.");
         } finally {
             setIsTyping(false);
         }
@@ -397,7 +444,7 @@ const PropertyChatbot = () => {
             let query = supabase
                 .from("property")
                 .select(
-                    "property_id, property_type, location, rental_price, num_bedroom, num_bathroom, property_size, description, availability_status, owner_id, images"
+                    "property_id, property_type, location, rental_price, num_bedroom, num_bathroom, property_size, description, availability_status, images"
                 );
 
             if (criteria.minBeds) query = query.gte("num_bedroom", criteria.minBeds);
