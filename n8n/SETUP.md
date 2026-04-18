@@ -10,9 +10,12 @@ Open n8n → **Settings** → **Variables** → Add these three:
 
 | Variable | Value |
 |---|---|
-| `SUPABASE_URL` | `https://wlflgdiqnrhjhgnhosvu.supabase.co` |
+| `SUPABASE_URL` | `https://<your-project-ref>.supabase.co` (from Supabase Dashboard → Settings → API → Project URL) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase **service_role** key (from Supabase Dashboard → Settings → API) |
 | `SMTP_FROM_EMAIL` | The email address n8n will send from (e.g. `noreply@yourdomain.com`) |
+| `WEBHOOK_SECRET` | A strong random secret (e.g. run `openssl rand -hex 32` in your terminal) — used to authenticate requests from the frontend |
+
+> **Security:** The `WEBHOOK_SECRET` must also be set in your `.env` file as `VITE_N8N_WEBHOOK_SECRET=<same value>`. Requests without the correct `X-Webhook-Secret` header are silently dropped by the workflow.
 
 ---
 
@@ -60,6 +63,7 @@ Copy these and add them to your `.env` file:
 ```env
 VITE_N8N_NEW_BOOKING_WEBHOOK=http://localhost:5678/webhook/new-appointment
 VITE_N8N_STATUS_WEBHOOK=http://localhost:5678/webhook/appointment-status
+VITE_N8N_WEBHOOK_SECRET=<same value as WEBHOOK_SECRET n8n variable>
 ```
 
 Then restart the dev server: `npm run dev`

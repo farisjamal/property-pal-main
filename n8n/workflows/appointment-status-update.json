@@ -17,6 +17,34 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "secret-check",
+              "leftValue": "={{ $json.headers['x-webhook-secret'] }}",
+              "rightValue": "={{ $vars.WEBHOOK_SECRET }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-if-secret-status",
+      "name": "Validate Webhook Secret",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
         "method": "GET",
         "url": "={{ $vars.SUPABASE_URL }}/rest/v1/appointment?appointment_id=eq.{{ $json.body.appointmentId }}&select=appointment_id,appointment_date,appointment_time,status,property:property_id(property_type,location),tenant:tenant_id(name,email),property_owner:owner_id(name)",
         "sendHeaders": true,
@@ -38,7 +66,7 @@
       "name": "Get Appointment Details",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [460, 300]
+      "position": [680, 300]
     },
     {
       "parameters": {
@@ -66,7 +94,7 @@
       "name": "Approved or Rejected?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [680, 300]
+      "position": [900, 300]
     },
     {
       "parameters": {
@@ -81,7 +109,7 @@
       "name": "Email Tenant - Approved",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [920, 180],
+      "position": [1140, 180],
       "credentials": {
         "smtp": {
           "id": "1",
@@ -102,7 +130,7 @@
       "name": "Email Tenant - Rejected",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [920, 420],
+      "position": [1140, 420],
       "credentials": {
         "smtp": {
           "id": "1",
@@ -116,11 +144,23 @@
       "main": [
         [
           {
-            "node": "Get Appointment Details",
+            "node": "Validate Webhook Secret",
             "type": "main",
             "index": 0
           }
         ]
+      ]
+    },
+    "Validate Webhook Secret": {
+      "main": [
+        [
+          {
+            "node": "Get Appointment Details",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     },
     "Get Appointment Details": {

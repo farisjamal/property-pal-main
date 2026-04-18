@@ -13,6 +13,7 @@
 
 const N8N_NEW_BOOKING_WEBHOOK = import.meta.env.VITE_N8N_NEW_BOOKING_WEBHOOK as string | undefined;
 const N8N_STATUS_WEBHOOK = import.meta.env.VITE_N8N_STATUS_WEBHOOK as string | undefined;
+const N8N_WEBHOOK_SECRET = import.meta.env.VITE_N8N_WEBHOOK_SECRET as string | undefined;
 
 /**
  * Notifies n8n that a new appointment was booked.
@@ -21,15 +22,22 @@ const N8N_STATUS_WEBHOOK = import.meta.env.VITE_N8N_STATUS_WEBHOOK as string | u
  */
 export const notifyNewBooking = (appointmentId: number): void => {
   if (!N8N_NEW_BOOKING_WEBHOOK) {
-    console.warn('[n8n] VITE_N8N_NEW_BOOKING_WEBHOOK not set — skipping notification');
+    if (import.meta.env.DEV) {
+      console.warn('[n8n] VITE_N8N_NEW_BOOKING_WEBHOOK not set — skipping notification');
+    }
     return;
   }
   fetch(N8N_NEW_BOOKING_WEBHOOK, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(N8N_WEBHOOK_SECRET ? { 'X-Webhook-Secret': N8N_WEBHOOK_SECRET } : {}),
+    },
     body: JSON.stringify({ appointmentId }),
   }).catch((err) => {
-    console.warn('[n8n] Failed to trigger new booking notification:', err);
+    if (import.meta.env.DEV) {
+      console.warn('[n8n] Failed to trigger new booking notification:', err);
+    }
   });
 };
 
@@ -40,14 +48,21 @@ export const notifyNewBooking = (appointmentId: number): void => {
  */
 export const notifyStatusUpdate = (appointmentId: number): void => {
   if (!N8N_STATUS_WEBHOOK) {
-    console.warn('[n8n] VITE_N8N_STATUS_WEBHOOK not set — skipping notification');
+    if (import.meta.env.DEV) {
+      console.warn('[n8n] VITE_N8N_STATUS_WEBHOOK not set — skipping notification');
+    }
     return;
   }
   fetch(N8N_STATUS_WEBHOOK, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(N8N_WEBHOOK_SECRET ? { 'X-Webhook-Secret': N8N_WEBHOOK_SECRET } : {}),
+    },
     body: JSON.stringify({ appointmentId }),
   }).catch((err) => {
-    console.warn('[n8n] Failed to trigger status update notification:', err);
+    if (import.meta.env.DEV) {
+      console.warn('[n8n] Failed to trigger status update notification:', err);
+    }
   });
 };
