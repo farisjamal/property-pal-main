@@ -1,0 +1,27 @@
+{
+  "deno.enablePaths": ["supabase/functions"],
+  "deno.lint": true,
+  "deno.unstable": [],
+  "css.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+
+  "scm.diffDecorations": "all",
+  "scm.diffDecorationsGutterVisibility": "always",
+  "scm.diffDecorationsGutterAction": "diff",
+  "scm.diffDecorationsIgnoreTrimWhitespace": "false",
+  "diffEditor.ignoreTrimWhitespace": false,
+  "diffEditor.renderSideBySide": true,
+  "editor.renderWhitespace": "boundary",
+
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "git.enableSmartCommit": false,
+  "git.showPushSuccessNotification": true,
+  "git.branchProtection": ["main"],
+  "git.branchProtectionPrompt": "alwaysPrompt",
+
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "typescript.updateImportsOnFileMove.enabled": "always"
+}
