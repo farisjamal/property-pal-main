@@ -10,6 +10,8 @@ import { User, Lock, Mail, Phone, Calendar, Save, Loader2, KeyRound, Heart, MapP
 import { Link } from 'react-router-dom';
 import { encryptData, decryptData, batchDecrypt } from '@/utils/security';
 import { logSensitiveDataAccess, logProfileUpdate } from '@/utils/auditLog';
+import { validatePassword } from '@/utils/passwordValidation';
+import MFASection from '@/components/auth/MFASection';
 
 interface ProfileData {
   name: string;
@@ -186,8 +188,9 @@ const TenantProfile = () => {
       toast({ title: 'Error', description: 'Passwords do not match', variant: 'destructive' });
       return;
     }
-    if (newPassword.length < 6) {
-      toast({ title: 'Error', description: 'Password must be at least 6 characters', variant: 'destructive' });
+    const { valid, errors } = validatePassword(newPassword);
+    if (!valid) {
+      toast({ title: 'Weak Password', description: `Password requires: ${errors.join(', ')}`, variant: 'destructive' });
       return;
     }
 
@@ -214,7 +217,7 @@ const TenantProfile = () => {
     setIsResettingPassword(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: `${window.location.origin}/reset-password`,
       });
       if (error) throw error;
       toast({ title: 'Success', description: 'Password reset link sent to your email' });
@@ -315,6 +318,9 @@ const TenantProfile = () => {
           </form>
         </CardContent>
       </Card>
+
+      {/* Two-Factor Authentication */}
+      <MFASection />
 
       {/* Saved Properties */}
       <Card>

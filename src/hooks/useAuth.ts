@@ -10,6 +10,8 @@ interface UserProfile {
   profileId: number;
   name: string;
   email: string;
+  emailVerified: boolean;
+  mfaEnabled: boolean;
 }
 
 export const useAuth = () => {
@@ -96,12 +98,21 @@ export const useAuth = () => {
         profileData = data ? { ...data, profileId: data.tenant_id } : null;
       }
 
+      // Check email verification and MFA status from the current session user
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const emailVerified = !!currentUser?.email_confirmed_at;
+      const mfaEnabled = (currentUser?.factors ?? []).some(
+        (f) => f.status === 'verified' && f.factor_type === 'totp'
+      );
+
       setUserProfile({
         roleId,
         roleName,
         profileId: profileData?.profileId || 0,
         name: profileData?.name || '',
         email: profileData?.email || '',
+        emailVerified,
+        mfaEnabled,
       });
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -109,6 +120,52 @@ export const useAuth = () => {
       setIsLoading(false);
     }
   };
+
+  // Session inactivity timeout (30 minutes)
+  useEffect(() => {
+    if (!user) return;
+
+    const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+    const WARNING_BEFORE_MS = 5 * 60 * 1000; // warn 5 min before
+    let timeoutId: ReturnType<typeof setTimeout>;
+    let warningId: ReturnType<typeof setTimeout>;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      clearTimeout(warningId);
+      sessionStorage.setItem('lastActivity', Date.now().toString());
+
+      warningId = setTimeout(() => {
+        // Could dispatch a custom event for a toast, but kept simple
+        console.warn('Session expiring soon due to inactivity');
+      }, INACTIVITY_TIMEOUT_MS - WARNING_BEFORE_MS);
+
+      timeoutId = setTimeout(async () => {
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+        setUserProfile(null);
+        navigate('/auth');
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    // Check if session was already expired before this mount
+    const lastActivity = sessionStorage.getItem('lastActivity');
+    if (lastActivity && Date.now() - Number(lastActivity) > INACTIVITY_TIMEOUT_MS) {
+      supabase.auth.signOut();
+      return;
+    }
+
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer();
+
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, resetTimer));
+      clearTimeout(timeoutId);
+      clearTimeout(warningId);
+    };
+  }, [user, navigate]);
 
   const signOut = async () => {
     // Log logout before signing out (while we still have user context)

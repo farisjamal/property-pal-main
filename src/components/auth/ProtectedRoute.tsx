@@ -22,6 +22,14 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
         return;
       }
 
+      // Block access if email is not verified (defense in depth)
+      if (!session.user.email_confirmed_at) {
+        await supabase.auth.signOut();
+        setIsAuthorized(false);
+        setIsLoading(false);
+        return;
+      }
+
       // Get role from user_roles table
       const { data: roleData, error } = await supabase
         .from('user_roles')
@@ -37,6 +45,14 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
       }
 
       if (!allowedRoles.includes(roleData.role_id)) {
+        setIsAuthorized(false);
+        setIsLoading(false);
+        return;
+      }
+
+      // Enforce MFA: if user has enrolled TOTP but hasn't completed AAL2, block access
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalData && aalData.nextLevel === 'aal2' && aalData.currentLevel !== 'aal2') {
         setIsAuthorized(false);
         setIsLoading(false);
         return;
