@@ -39,15 +39,15 @@ const Hero = () => {
     <section className="relative min-h-[100dvh] flex items-center overflow-hidden pt-36 pb-16 lg:pt-40 lg:pb-0">
       
       {/* Immersive Background System */}
-      <div className="absolute inset-0 bg-background/90 z-0" />
-      <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30 mix-blend-overlay z-0" 
+      <div className="absolute inset-0 bg-background/70 dark:bg-background/90 z-0" />
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-50 mix-blend-multiply dark:opacity-30 dark:mix-blend-overlay z-0"
         style={{ backgroundImage: `url(${heroBackground})` }}
       />
-      
+
       {/* Animated Ambient Glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] min-w-[500px] min-h-[500px] bg-primary/20 rounded-full blur-[120px] pointer-events-none animate-pulse z-0" style={{ animationDuration: '8s' }} />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] min-w-[600px] min-h-[600px] bg-accent/20 rounded-full blur-[150px] pointer-events-none z-0" />
+      <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] min-w-[500px] min-h-[500px] bg-primary/30 dark:bg-primary/20 rounded-full blur-[120px] pointer-events-none animate-pulse z-0" style={{ animationDuration: '8s' }} />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] min-w-[600px] min-h-[600px] bg-accent/40 dark:bg-accent/20 rounded-full blur-[150px] pointer-events-none z-0" />
 
       <div className="container relative z-10 px-4 py-8 max-w-7xl mx-auto">
         <div className="grid lg:grid-cols-2 gap-16 lg:gap-8 items-center">

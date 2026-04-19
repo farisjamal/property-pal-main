@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Building2, Home, Calendar, LogOut, Menu, X, Search, User, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const navItems = [
   { href: '/tenant', label: 'Dashboard', icon: Home },
@@ -103,9 +104,12 @@ const TenantLayout = () => {
               </h1>
             </div>
             
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-md bg-secondary/40 border border-border">
-              <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-[11px] font-medium tracking-widest text-muted-foreground uppercase">Tenant Edition</span>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-md bg-secondary/40 border border-border">
+                <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-[11px] font-medium tracking-widest text-muted-foreground uppercase">Tenant Edition</span>
+              </div>
             </div>
           </div>
         </header>

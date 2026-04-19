@@ -13,6 +13,7 @@ import {
   Home
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const navItems = [
   { href: '/admin', label: 'Dashboard', icon: Home },
@@ -95,7 +96,7 @@ const AdminLayout = () => {
             <h1 className="text-xl font-semibold">
               {navItems.find(item => item.href === location.pathname)?.label || 'Dashboard'}
             </h1>
-            <div className="w-10" /> {/* Spacer */}
+            <ThemeToggle />
           </div>
         </header>
 

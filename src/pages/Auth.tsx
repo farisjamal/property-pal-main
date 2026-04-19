@@ -11,6 +11,7 @@ import { Building2, Mail, Lock, User, Phone, CheckCircle, Home, Shield } from 'l
 import { z } from 'zod';
 import { encryptData, hashPin } from '@/utils/security';
 import { logLogin, logFailedLogin } from '@/utils/auditLog';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -256,7 +257,10 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex relative">
+      <div className="absolute top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
       {/* ── Left panel: Brand identity ── */}
       <div className="hidden lg:flex lg:w-5/12 xl:w-[42%] relative flex-col justify-between p-12 bg-mesh-dark overflow-hidden">
         {/* Ambient glows */}
