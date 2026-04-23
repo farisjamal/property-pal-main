@@ -6,12 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Building2, Mail, Lock, User, Phone, CheckCircle, Home, Shield } from 'lucide-react';
 import { z } from 'zod';
 import { encryptData, hashPin } from '@/utils/security';
 import { logLogin, logFailedLogin } from '@/utils/auditLog';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import MFAVerify from '@/components/auth/MFAVerify';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -36,6 +38,11 @@ const Auth = () => {
   const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSubmitting, setForgotSubmitting] = useState(false);
+  const [mfaPending, setMfaPending] = useState(false);
+  const [pendingRoleId, setPendingRoleId] = useState<number | null>(null);
   const [registerData, setRegisterData] = useState({
     name: '',
     email: '',
@@ -66,6 +73,22 @@ const Auth = () => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        // Check if MFA verification is still needed
+        const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (aalData && aalData.nextLevel === 'aal2' && aalData.currentLevel !== 'aal2') {
+          // User has MFA enrolled but hasn't verified yet — show MFA screen
+          const { data: roleData } = await supabase
+            .from('user_roles')
+            .select('role_id')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+          if (roleData) {
+            setPendingRoleId(roleData.role_id);
+            setMfaPending(true);
+          }
+          return;
+        }
+
         const { data: roleData } = await supabase
           .from('user_roles')
           .select('role_id')
@@ -135,7 +158,18 @@ const Auth = () => {
         throw new Error('User role not found. Please contact support.');
       }
 
-      // Log successful login and reset attempts
+      // Check if MFA verification is needed before redirecting
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalData && aalData.nextLevel === 'aal2' && aalData.currentLevel !== 'aal2') {
+        // User has MFA enrolled — show verification screen instead of redirecting
+        setPendingRoleId(roleData.role_id);
+        setMfaPending(true);
+        setLoginAttempts(0);
+        setLockoutUntil(null);
+        return; // Don't redirect yet — wait for MFA verification
+      }
+
+      // No MFA — log successful login and redirect
       await logLogin(authData.user.id);
       setLoginAttempts(0);
       setLockoutUntil(null);
@@ -176,6 +210,42 @@ const Auth = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      z.string().email('Please enter a valid email address').parse(forgotEmail);
+    } catch (err: any) {
+      const message = err instanceof z.ZodError ? err.errors[0].message : 'Invalid email';
+      toast({ title: 'Invalid Email', description: message, variant: 'destructive' });
+      return;
+    }
+
+    setForgotSubmitting(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+
+      toast({
+        title: 'Check your email',
+        description: 'If an account exists for that email, a password reset link has been sent.',
+      });
+      setForgotOpen(false);
+      setForgotEmail('');
+    } catch (error: any) {
+      // Don't leak whether email exists — show same confirmation
+      toast({
+        title: 'Check your email',
+        description: 'If an account exists for that email, a password reset link has been sent.',
+      });
+      setForgotOpen(false);
+      setForgotEmail('');
+    } finally {
+      setForgotSubmitting(false);
     }
   };
 
@@ -256,6 +326,33 @@ const Auth = () => {
     }
   };
 
+  // Handle MFA verification callback
+  const handleMFAVerified = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await logLogin(user.id);
+    }
+    setMfaPending(false);
+    toast({
+      title: 'Welcome back!',
+      description: 'Login successful.',
+    });
+    if (pendingRoleId) {
+      redirectBasedOnRole(pendingRoleId);
+    }
+  };
+
+  const handleMFACancelled = async () => {
+    await supabase.auth.signOut();
+    setMfaPending(false);
+    setPendingRoleId(null);
+  };
+
+  // Show MFA verification screen if pending
+  if (mfaPending) {
+    return <MFAVerify onVerified={handleMFAVerified} onCancel={handleMFACancelled} />;
+  }
+
   return (
     <div className="min-h-screen flex relative">
       <div className="absolute top-4 right-4 z-50">
@@ -269,7 +366,7 @@ const Auth = () => {
 
         {/* Right-edge gradient fade — blends seamlessly into the right panel */}
         <div
-          className="absolute top-0 right-0 w-24 h-full pointer-events-none z-20"
+          className="absolute top-0 right-0 w-10 h-full pointer-events-none z-20"
           style={{ background: 'linear-gradient(to right, transparent, hsl(var(--background)))' }}
         />
 
@@ -279,18 +376,18 @@ const Auth = () => {
             <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
               <Home className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-white font-display font-semibold text-xl tracking-tight">PropertyPal</span>
+            <span className="brand-fg font-display font-semibold text-xl tracking-tight">PropertyPal</span>
           </Link>
         </div>
 
         {/* Center content */}
         <div className="relative z-10 space-y-7">
-          <h2 className="font-display font-light text-[clamp(2.8rem,5vw,4rem)] leading-[0.95] text-white">
+          <h2 className="font-display font-light text-[clamp(2.8rem,5vw,4rem)] leading-[0.95] brand-fg">
             Your perfect
             <br />
             <em className="text-primary not-italic">home</em> awaits.
           </h2>
-          <p className="text-white/55 text-base leading-relaxed max-w-xs">
+          <p className="brand-fg-soft text-base leading-relaxed max-w-xs">
             Browse verified properties, schedule viewings, and connect with trusted owners — all from one secure platform.
           </p>
 
@@ -305,7 +402,7 @@ const Auth = () => {
                 <div className="w-5 h-5 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
                   <CheckCircle className="w-3 h-3 text-primary" />
                 </div>
-                <span className="text-white/65 text-sm font-medium">{feature}</span>
+                <span className="brand-fg-muted text-sm font-medium">{feature}</span>
               </div>
             ))}
           </div>
@@ -313,7 +410,7 @@ const Auth = () => {
           {/* Security note */}
           <div className="flex items-center gap-2.5 pt-2">
             <Shield className="w-4 h-4 text-primary/70 shrink-0" />
-            <span className="text-white/35 text-xs">
+            <span className="brand-fg-dim text-xs">
               All data encrypted at rest and in transit
             </span>
           </div>
@@ -321,7 +418,7 @@ const Auth = () => {
 
         {/* Bottom */}
         <div className="relative z-10">
-          <p className="text-white/25 text-xs">© 2026 PropertyPal. All rights reserved.</p>
+          <p className="brand-fg-subtle text-xs">© 2026 PropertyPal. All rights reserved.</p>
         </div>
       </div>
 
@@ -372,7 +469,19 @@ const Auth = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="login-password" className="text-sm font-medium">Password</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="login-password" className="text-sm font-medium">Password</Label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForgotEmail(loginData.email);
+                        setForgotOpen(true);
+                      }}
+                      className="text-xs font-medium text-primary hover:underline focus:outline-none focus:underline"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -529,6 +638,49 @@ const Auth = () => {
           </Tabs>
         </div>
       </div>
+
+      {/* Forgot-password dialog */}
+      <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset your password</DialogTitle>
+            <DialogDescription>
+              Enter the email address linked to your account. We'll send you a link to reset your password.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="forgot-email" className="text-sm font-medium">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  className="pl-10 h-11"
+                  required
+                  autoFocus
+                />
+              </div>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setForgotOpen(false)}
+                disabled={forgotSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={forgotSubmitting}>
+                {forgotSubmitting ? 'Sending...' : 'Send reset link'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

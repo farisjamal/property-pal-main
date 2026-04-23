@@ -12,7 +12,17 @@
       "mcp__plugin_supabase_supabase__get_publishable_keys",
       "Bash(npm run:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "mcp__plugin_supabase_supabase__execute_sql",
+      "mcp__plugin_supabase_supabase__apply_migration",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_pages",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_snapshot",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__new_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__evaluate_script",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_screenshot",
+      "Bash(git fetch *)",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__navigate_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__click"
     ]
   },
   "enabledPlugins": {
