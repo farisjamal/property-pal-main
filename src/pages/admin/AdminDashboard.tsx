@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Home, Calendar, UserCog } from 'lucide-react';
+import { Users, Home, Calendar, UserCog, ArrowRight, ShieldAlert } from 'lucide-react';
 
 interface DashboardStats {
   totalUsers: number;
@@ -55,55 +55,65 @@ const AdminDashboard = () => {
   };
 
   const statCards = [
-    { title: 'Total Tenants', value: stats.totalUsers, icon: Users, color: 'bg-blue-500' },
-    { title: 'Property Owners', value: stats.totalOwners, icon: UserCog, color: 'bg-green-500' },
-    { title: 'Properties', value: stats.totalProperties, icon: Home, color: 'bg-purple-500' },
-    { title: 'Appointments', value: stats.totalAppointments, icon: Calendar, color: 'bg-orange-500' },
+    { title: 'Total Tenants', value: stats.totalUsers, icon: Users, hoverBorder: 'hover:border-blue-500/50' },
+    { title: 'Property Owners', value: stats.totalOwners, icon: UserCog, hoverBorder: 'hover:border-purple-500/50' },
+    { title: 'Properties', value: stats.totalProperties, icon: Home, hoverBorder: 'hover:border-primary/50' },
+    { title: 'Appointments', value: stats.totalAppointments, icon: Calendar, hoverBorder: 'hover:border-orange-500/50' },
   ];
 
   if (userProfile?.roleId !== 1) {
-    return <div className="flex items-center justify-center h-64"><p className="text-destructive">Unauthorized: Admin access required</p></div>;
+    return <div className="flex items-center justify-center h-64"><p className="text-destructive font-semibold">Unauthorized: Admin access required</p></div>;
   }
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat) => (
-          <Card key={stat.title} className="hover-lift">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      
+      {/* Metric Cards - Stripe Style */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {statCards.map((stat, i) => (
+          <Card key={stat.title} className={`bg-card/90 backdrop-blur-md border border-border transition-colors duration-200 shadow-sm ${stat.hoverBorder}`}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
                 {stat.title}
               </CardTitle>
-              <div className={`p-2 rounded-lg ${stat.color}`}>
-                <stat.icon className="w-4 h-4 text-white" />
-              </div>
+              <stat.icon className="w-4 h-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{stat.value}</div>
+               <div className="text-3xl font-semibold tracking-tight text-foreground">{stat.value}</div>
+               <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">Registered in system <ArrowRight className="w-3 h-3" /></p>
             </CardContent>
           </Card>
         ))}
       </div>
 
       {stats.pendingAppointments > 0 && (
-        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
-          <CardHeader>
-            <CardTitle className="text-orange-700 dark:text-orange-400">
-              ⏳ {stats.pendingAppointments} Pending Appointment{stats.pendingAppointments > 1 ? 's' : ''}
+        <Card className="bg-orange-50/50 dark:bg-orange-950/20 border border-orange-200/50 dark:border-orange-900/50 shadow-sm overflow-hidden relative">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-orange-500" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-orange-700 dark:text-orange-400 flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4" />
+              Action Required
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">
-              There are appointments waiting for owner approval.
-            </p>
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-2xl font-bold text-foreground">
+                  {stats.pendingAppointments} Pending Appointment{stats.pendingAppointments > 1 ? 's' : ''}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  There are appointments waiting for owner approval across properties.
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
