@@ -5,7 +5,7 @@ export const PASSWORD_REQUIREMENTS = [
   { label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
   { label: 'One lowercase letter', test: (p: string) => /[a-z]/.test(p) },
   { label: 'One number', test: (p: string) => /[0-9]/.test(p) },
-  { label: 'One special character (!@#$%^&*...)', test: (p: string) => /[!@#$%^&*()_+\-=\[\]{}|;:'",.<>?/~`\\]/.test(p) },
+  { label: 'One special character (!@#$%^&*...)', test: (p: string) => /[!@#$%^&*()_+\-=[\]{}|;:'",.<>?/~`\\]/.test(p) },
 ] as const;
 
 export function validatePassword(password: string): { valid: boolean; errors: string[] } {
