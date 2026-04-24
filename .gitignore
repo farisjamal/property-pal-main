@@ -36,6 +36,9 @@ supabase/functions/.env
 *.sw?
 
 # Local scratchpads and planning notes
+.claude
+.claude/
+.claude/*
 images.txt
 .claude/plan/
 .claude/*.png
