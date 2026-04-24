@@ -12,6 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Edit, Trash2, MapPin, Bed, Bath, Ruler, Image as ImageIcon, Building2 } from 'lucide-react';
 import PropertyPhotoUpload from '@/components/properties/PropertyPhotoUpload';
 import { logPropertyCreation, logPropertyUpdate, logPropertyDeletion } from '@/utils/auditLog';
+import KycGate from '@/components/kyc/KycGate';
+import { getOwnerKycStatus, KycStatus } from '@/utils/kyc';
 
 interface Property {
   property_id: number;
@@ -67,6 +69,7 @@ const OwnerProperties = () => {
   const [formData, setFormData] = useState<PropertyFormData>(initialFormData);
   const [ownerId, setOwnerId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [kycStatus, setKycStatus] = useState<KycStatus>('not_submitted');
 
   useEffect(() => {
     if (user) fetchOwnerIdAndProperties();
@@ -83,6 +86,8 @@ const OwnerProperties = () => {
       if (ownerError) throw ownerError;
       if (ownerData) {
         setOwnerId(ownerData.owner_id);
+        const st = await getOwnerKycStatus(ownerData.owner_id);
+        setKycStatus(st);
         const { data: propertiesData, error: propertiesError } = await supabase
           .from('property')
           .select('*')
@@ -219,7 +224,11 @@ const OwnerProperties = () => {
           }}
         >
           <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90 font-medium gap-2 rounded-xl px-5">
+            <Button
+              className="bg-primary hover:bg-primary/90 font-medium gap-2 rounded-xl px-5"
+              disabled={kycStatus !== 'approved'}
+              title={kycStatus !== 'approved' ? 'Complete KYC verification to add listings' : undefined}
+            >
               <Plus className="w-4 h-4" />
               Add Property
             </Button>
@@ -387,6 +396,11 @@ const OwnerProperties = () => {
         </Dialog>
       </div>
 
+      {/* KYC Gate */}
+      {kycStatus !== 'approved' && (
+        <KycGate status={kycStatus}>{null}</KycGate>
+      )}
+
       {/* Property Grid */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -413,6 +427,7 @@ const OwnerProperties = () => {
           </p>
           <Button
             onClick={() => setIsDialogOpen(true)}
+            disabled={kycStatus !== 'approved'}
             className="bg-primary hover:bg-primary/90 font-medium gap-2 rounded-xl"
           >
             <Plus className="w-4 h-4" />

@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Building2, Home, Calendar, LogOut, Menu, X, User, ShieldCheck } from 'lucide-react';
+import { Building2, Home, Calendar, LogOut, Menu, X, User, ShieldCheck, BadgeCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -10,6 +10,7 @@ const navItems = [
   { href: '/owner', label: 'Dashboard', icon: Home },
   { href: '/owner/properties', label: 'My Properties', icon: Building2 },
   { href: '/owner/appointments', label: 'Appointments', icon: Calendar },
+  { href: '/owner/kyc', label: 'Verification', icon: BadgeCheck },
   { href: '/owner/profile', label: 'Profile', icon: User },
 ];
 

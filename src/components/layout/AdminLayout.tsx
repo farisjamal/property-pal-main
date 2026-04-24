@@ -2,16 +2,17 @@ import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { 
-  Building2, 
-  Users, 
-  UserCog, 
-  BarChart3, 
-  LogOut, 
+import {
+  Building2,
+  Users,
+  UserCog,
+  BarChart3,
+  LogOut,
   Menu,
   X,
   Home,
-  ShieldCheck
+  ShieldCheck,
+  BadgeCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -20,6 +21,7 @@ const navItems = [
   { href: '/admin', label: 'Dashboard', icon: Home },
   { href: '/admin/users', label: 'Manage Users', icon: Users },
   { href: '/admin/owners', label: 'Property Owners', icon: UserCog },
+  { href: '/admin/kyc', label: 'KYC Review', icon: BadgeCheck },
   { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
 ];
 

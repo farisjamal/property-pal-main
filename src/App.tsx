@@ -13,11 +13,13 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminPropertyOwners from "./pages/admin/AdminPropertyOwners";
 import AdminReports from "./pages/admin/AdminReports";
+import AdminKYC from "./pages/admin/AdminKYC";
 import OwnerLayout from "./components/layout/OwnerLayout";
 import OwnerDashboard from "./pages/owner/OwnerDashboard";
 import OwnerProperties from "./pages/owner/OwnerProperties";
 import OwnerAppointments from "./pages/owner/OwnerAppointments";
 import OwnerProfile from "./pages/owner/OwnerProfile";
+import OwnerKYC from "./pages/owner/OwnerKYC";
 import TenantLayout from "./components/layout/TenantLayout";
 import TenantDashboard from "./pages/tenant/TenantDashboard";
 import TenantProperties from "./pages/tenant/TenantProperties";
@@ -44,6 +46,7 @@ const App = () => (
             <Route index element={<AdminDashboard />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="owners" element={<AdminPropertyOwners />} />
+            <Route path="kyc" element={<AdminKYC />} />
             <Route path="reports" element={<AdminReports />} />
           </Route>
 
@@ -53,6 +56,7 @@ const App = () => (
             <Route path="properties" element={<OwnerProperties />} />
             <Route path="appointments" element={<OwnerAppointments />} />
             <Route path="profile" element={<OwnerProfile />} />
+            <Route path="kyc" element={<OwnerKYC />} />
           </Route>
 
           {/* Tenant Routes */}
