@@ -182,6 +182,78 @@ export type Database = {
         }
         Relationships: []
       }
+      kyc_submission: {
+        Row: {
+          created_at: string
+          full_name_enc: string
+          ic_back_path: string
+          ic_front_path: string
+          ic_no_enc: string
+          id: string
+          owner_id: number
+          pdpa_consent_at: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: number | null
+          selfie_path: string
+          status: string
+          submitted_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          full_name_enc: string
+          ic_back_path: string
+          ic_front_path: string
+          ic_no_enc: string
+          id?: string
+          owner_id: number
+          pdpa_consent_at: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: number | null
+          selfie_path: string
+          status?: string
+          submitted_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          full_name_enc?: string
+          ic_back_path?: string
+          ic_front_path?: string
+          ic_no_enc?: string
+          id?: string
+          owner_id?: number
+          pdpa_consent_at?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: number | null
+          selfie_path?: string
+          status?: string
+          submitted_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kyc_submission_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "property_owner"
+            referencedColumns: ["owner_id"]
+          },
+          {
+            foreignKeyName: "kyc_submission_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "admin"
+            referencedColumns: ["admin_id"]
+          },
+        ]
+      }
       property: {
         Row: {
           availability_status: string | null
@@ -244,8 +316,10 @@ export type Database = {
           email: string | null
           gender: string | null
           ic_no: string | null
+          kyc_status: string
           name: string
           owner_id: number
+          security_pin_hash: string | null
           user_id: string
         }
         Insert: {
@@ -256,8 +330,10 @@ export type Database = {
           email?: string | null
           gender?: string | null
           ic_no?: string | null
+          kyc_status?: string
           name: string
           owner_id?: number
+          security_pin_hash?: string | null
           user_id: string
         }
         Update: {
@@ -268,8 +344,10 @@ export type Database = {
           email?: string | null
           gender?: string | null
           ic_no?: string | null
+          kyc_status?: string
           name?: string
           owner_id?: number
+          security_pin_hash?: string | null
           user_id?: string
         }
         Relationships: [
