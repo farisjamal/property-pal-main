@@ -62,6 +62,23 @@ interface SendResult {
   error?: string;
 }
 
+/**
+ * Constant-time string comparison to prevent timing attacks on the webhook
+ * secret. Always compares every byte instead of short-circuiting on the first
+ * mismatch.
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const aBytes = enc.encode(a);
+  const bBytes = enc.encode(b);
+  if (aBytes.length !== bBytes.length) return false;
+  let diff = 0;
+  for (let i = 0; i < aBytes.length; i++) {
+    diff |= aBytes[i] ^ bBytes[i];
+  }
+  return diff === 0;
+}
+
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
 
@@ -69,16 +86,23 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  // Validate webhook secret to prevent unauthorized calls
+  // Validate webhook secret to prevent unauthorized calls. Fail closed: a
+  // missing secret means the function is misconfigured, not open to everyone.
   const webhookSecret = Deno.env.get("WEBHOOK_SECRET");
-  if (webhookSecret) {
-    const incomingSecret = req.headers.get("x-webhook-secret");
-    if (incomingSecret !== webhookSecret) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: corsHeaders,
-      });
-    }
+  if (!webhookSecret) {
+    console.error("WEBHOOK_SECRET is not configured — refusing all requests");
+    return new Response(JSON.stringify({ error: "Server misconfigured" }), {
+      status: 500,
+      headers: corsHeaders,
+    });
+  }
+
+  const incomingSecret = req.headers.get("x-webhook-secret");
+  if (!incomingSecret || !timingSafeEqual(incomingSecret, webhookSecret)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: corsHeaders,
+    });
   }
 
   let payload: WebhookPayload;
