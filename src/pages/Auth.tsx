@@ -10,8 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from '@/hooks/use-toast';
 import { Building2, Mail, Lock, User, Phone, CheckCircle, Home, Shield } from 'lucide-react';
 import { z } from 'zod';
-import { encryptData, hashPin } from '@/utils/security';
-import { logLogin, logFailedLogin } from '@/utils/auditLog';
+import { encryptData, hashPin } from '@/security/encryption';
+import { logLogin, logFailedLogin } from '@/security/auditLog';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import MFAVerify from '@/components/auth/MFAVerify';
 

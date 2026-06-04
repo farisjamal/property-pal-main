@@ -40,7 +40,7 @@ audit_log (
 - Row Level Security (RLS) policies - only admins can view audit logs
 - Database functions for logging auth events and data access
 
-**Utility Functions:** `src/utils/auditLog.ts`
+**Utility Functions:** `src/security/auditLog.ts`
 
 Key audit logging functions:
 - `logAuditEvent()` - Core logging function
@@ -62,7 +62,7 @@ Key audit logging functions:
 
 > **Architecture change (Feb 2026):** Encryption was migrated from client-side CryptoJS to a server-side Supabase Edge Function. The `VITE_ENCRYPTION_KEY` environment variable has been removed. All encrypt/decrypt operations now route through the `crypto-service` Edge Function.
 
-**Client Wrapper:** `src/utils/security.ts`
+**Client Wrapper:** `src/security/encryption.ts`
 
 ```typescript
 encryptData(text: string): Promise<string>   // Calls crypto-service Edge Function (encrypt)
@@ -138,7 +138,7 @@ hashPin(pin: string): Promise<string>         // Bcrypt hashing (client-side)
 - **Enforcement:** Optional per-user; can be enabled from profile settings
 
 ### Password Policy
-- **Validation:** `src/utils/passwordValidation.ts`
+- **Validation:** `src/security/passwordValidation.ts`
 - **Requirements:** 8+ characters, uppercase, lowercase, digit, special character
 - **Enforced at:**
   - Client-side: Registration form, password reset form
@@ -252,7 +252,7 @@ hashPin(pin: string): Promise<string>         // Bcrypt hashing (client-side)
 ### For Admins: View Audit Logs
 
 ```typescript
-import { fetchAuditLogs } from '@/utils/auditLog';
+import { fetchAuditLogs } from '@/security/auditLog';
 
 // Fetch all logs
 const logs = await fetchAuditLogs();
@@ -440,12 +440,12 @@ npm run build
 
 ### For Developers
 
-- Encryption client wrapper: `src/utils/security.ts`
+- Encryption client wrapper: `src/security/encryption.ts`
 - Encryption Edge Function: `supabase/functions/crypto-service/index.ts`
 - Admin user creation: `supabase/functions/admin-create-user/index.ts`
 - Rate limiter: `supabase/functions/rate-limiter/index.ts`
-- Password validation: `src/utils/passwordValidation.ts`
-- Audit utilities: `src/utils/auditLog.ts`
+- Password validation: `src/security/passwordValidation.ts`
+- Audit utilities: `src/security/auditLog.ts`
 - MFA components: `src/components/auth/MFASetup.tsx`, `MFAVerify.tsx`, `MFASection.tsx`
 - Auth hook: `src/hooks/useAuth.ts`
 - Password reset: `src/pages/ResetPassword.tsx`

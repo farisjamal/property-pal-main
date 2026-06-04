@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { notifyNewBooking } from "@/utils/n8nService";
-import { logAppointmentCreation } from "@/utils/auditLog";
+import { logAppointmentCreation } from "@/security/auditLog";
 
 // ---------------------------------------------------------------------------
 // Types

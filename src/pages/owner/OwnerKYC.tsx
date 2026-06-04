@@ -15,8 +15,8 @@ import {
   validateKycFile,
   resubmitAllowed,
   getSignedDocumentUrl,
-} from '@/utils/kyc';
-import { logKycSubmission } from '@/utils/auditLog';
+} from '@/security/kyc';
+import { logKycSubmission } from '@/security/auditLog';
 import KycStatusBadge from '@/components/kyc/KycStatusBadge';
 import PdpaNotice from '@/components/kyc/PdpaNotice';
 import { supabase } from '@/integrations/supabase/client';

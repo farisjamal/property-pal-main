@@ -21,13 +21,13 @@ import {
   getSignedDocumentUrl,
   listAllSubmissions,
   rejectSubmission,
-} from '@/utils/kyc';
-import { batchDecrypt } from '@/utils/security';
+} from '@/security/kyc';
+import { batchDecrypt } from '@/security/encryption';
 import {
   logKycDecision,
   logKycDocumentAccess,
   logSensitiveDataAccess,
-} from '@/utils/auditLog';
+} from '@/security/auditLog';
 import KycStatusBadge from '@/components/kyc/KycStatusBadge';
 
 interface DecryptedSubmission extends KycSubmissionRow {

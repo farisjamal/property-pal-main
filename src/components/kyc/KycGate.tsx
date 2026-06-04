@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ShieldAlert, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import type { KycStatus } from '@/utils/kyc';
+import type { KycStatus } from '@/security/kyc';
 
 interface Props {
   status: KycStatus;

@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, Lock, Mail, Phone, Calendar, Save, Loader2, KeyRound } from 'lucide-react';
-import { encryptData, decryptData, batchDecrypt } from '@/utils/security';
-import { logSensitiveDataAccess, logProfileUpdate } from '@/utils/auditLog';
-import { validatePassword } from '@/utils/passwordValidation';
+import { encryptData, decryptData, batchDecrypt } from '@/security/encryption';
+import { logSensitiveDataAccess, logProfileUpdate } from '@/security/auditLog';
+import { validatePassword } from '@/security/passwordValidation';
 import MFASection from '@/components/auth/MFASection';
 
 interface ProfileData {

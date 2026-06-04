@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Bed, Bath, Ruler, Calendar, Search, Filter, ImageIcon, Eye, Heart } from "lucide-react";
 import PropertyDetailModal from "@/components/properties/PropertyDetailModal";
-import { logAppointmentCreation } from "@/utils/auditLog";
+import { logAppointmentCreation } from "@/security/auditLog";
 import { notifyNewBooking } from "@/utils/n8nService";
 
 interface Property {

@@ -9,8 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
-import { encryptData, decryptData } from '@/utils/security';
-import { logUserCreation, logUserDeletion, logSensitiveDataAccess } from '@/utils/auditLog';
+import { encryptData, decryptData } from '@/security/encryption';
+import { logUserCreation, logUserDeletion, logSensitiveDataAccess } from '@/security/auditLog';
 
 interface Tenant {
   tenant_id: number;

@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
-import { encryptData } from '@/utils/security';
+import { encryptData } from '@/security/encryption';
 
 export type KycStatus = 'not_submitted' | 'pending' | 'approved' | 'rejected';
 export type KycDocKind = 'ic_front' | 'ic_back' | 'selfie';

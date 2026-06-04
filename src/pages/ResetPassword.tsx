@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Building2, Lock, Check, X, Loader2 } from 'lucide-react';
-import { passwordSchema, PASSWORD_REQUIREMENTS } from '@/utils/passwordValidation';
+import { passwordSchema, PASSWORD_REQUIREMENTS } from '@/security/passwordValidation';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { z } from 'zod';
 

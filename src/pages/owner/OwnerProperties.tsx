@@ -11,9 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Plus, Edit, Trash2, MapPin, Bed, Bath, Ruler, Image as ImageIcon, Building2 } from 'lucide-react';
 import PropertyPhotoUpload from '@/components/properties/PropertyPhotoUpload';
-import { logPropertyCreation, logPropertyUpdate, logPropertyDeletion } from '@/utils/auditLog';
+import { logPropertyCreation, logPropertyUpdate, logPropertyDeletion } from '@/security/auditLog';
 import KycGate from '@/components/kyc/KycGate';
-import { getOwnerKycStatus, KycStatus } from '@/utils/kyc';
+import { getOwnerKycStatus, KycStatus } from '@/security/kyc';
 
 interface Property {
   property_id: number;

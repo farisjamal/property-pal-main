@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, Clock, XCircle, AlertCircle } from 'lucide-react';
-import type { KycStatus } from '@/utils/kyc';
+import type { KycStatus } from '@/security/kyc';
 import { cn } from '@/lib/utils';
 
 interface Props {
