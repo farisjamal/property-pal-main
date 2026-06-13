@@ -329,6 +329,44 @@ const PropertyChatbot = () => {
         );
     };
 
+    /** Loads actionable appointments and prompts the user to pick one to cancel. */
+    const startCancelFlow = async (): Promise<void> => {
+        if (!isAuthenticated) {
+            addBotMessage("You need to be logged in to manage appointments.", {
+                quickReplies: [{ label: "Go to Login", value: "goto_login" }],
+            });
+            return;
+        }
+        if (!tenantId) {
+            addBotMessage("Only tenant accounts can manage appointments.");
+            return;
+        }
+
+        setIsTyping(true);
+        try {
+            const appointments = await loadActiveAppointments(tenantId);
+            if (appointments.length === 0) {
+                addBotMessage("You have no active appointments to cancel.");
+                return;
+            }
+
+            setBooking({ step: "cancel_select" });
+            addBotMessage("Which appointment would you like to cancel?", {
+                quickReplies: [
+                    ...appointments.map((a) => ({
+                        label: `${a.property?.property_type ?? "Property"} — ${a.appointment_date} at ${a.appointment_time}`,
+                        value: `cancel_appt_${a.appointment_id}`,
+                    })),
+                    { label: "Never mind", value: "cancel_booking" },
+                ],
+            });
+        } catch {
+            addBotMessage("Sorry, I couldn't load your appointments. Please try again.");
+        } finally {
+            setIsTyping(false);
+        }
+    };
+
     // ---------------------------------------------------------------------------
     // Quick-reply button handler
     // ---------------------------------------------------------------------------
@@ -339,9 +377,81 @@ const PropertyChatbot = () => {
             return;
         }
 
+        if (value === "intent_book") {
+            await startBookingFlow(lastSearchResults);
+            return;
+        }
+
+        if (value === "intent_cancel") {
+            await startCancelFlow();
+            return;
+        }
+
+        if (value === "dismiss") {
+            addBotMessage("No problem! Let me know if you need anything.");
+            return;
+        }
+
         if (value === "cancel_booking") {
             setBooking({ step: "idle" });
             addBotMessage("Booking cancelled. Is there anything else I can help you with?");
+            return;
+        }
+
+        // Cancel: appointment selected from list
+        if (value.startsWith("cancel_appt_") && booking.step === "cancel_select") {
+            const appointmentId = parseInt(value.replace("cancel_appt_", ""));
+            const selected = activeAppointments.find((a) => a.appointment_id === appointmentId);
+            if (!selected) return;
+
+            setBooking((prev) => ({
+                ...prev,
+                step: "cancel_confirm",
+                appointmentId: selected.appointment_id,
+                appointmentStatus: selected.status,
+            }));
+
+            addBotMessage(
+                `Are you sure you want to cancel this appointment?\n\n📍 ${selected.property?.property_type ?? "Property"} at ${selected.property?.location ?? "—"}\n📅 ${selected.appointment_date} at ${selected.appointment_time}`,
+                {
+                    quickReplies: [
+                        { label: "Yes, Cancel It", value: "confirm_cancel" },
+                        { label: "No, Keep It", value: "cancel_booking" },
+                    ],
+                }
+            );
+            return;
+        }
+
+        // Cancel: confirmed
+        if (value === "confirm_cancel" && booking.step === "cancel_confirm") {
+            if (!booking.appointmentId || !booking.appointmentStatus) return;
+
+            setIsTyping(true);
+            try {
+                await cancelAppointment(booking.appointmentId);
+                await logAppointmentStatusChange(
+                    booking.appointmentId.toString(),
+                    booking.appointmentStatus,
+                    "cancelled"
+                );
+
+                setBooking({ step: "idle" });
+                addBotMessage(
+                    "✅ Appointment cancelled successfully. Would you like to book a new one?",
+                    {
+                        quickReplies: [
+                            { label: "Book New Appointment", value: "intent_book" },
+                            { label: "No Thanks", value: "dismiss" },
+                        ],
+                    }
+                );
+            } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : "Unknown error";
+                addBotMessage(`Sorry, cancellation failed: ${message}. Please try again.`);
+            } finally {
+                setIsTyping(false);
+            }
             return;
         }
 
@@ -473,6 +583,12 @@ const PropertyChatbot = () => {
         // Waiting for a date — route directly to date handler
         if (booking.step === "select_date") {
             await handleBookingDateInput(inputValue);
+            return;
+        }
+
+        // Cancel intent — start cancel flow
+        if (isCancelIntent(inputValue) && booking.step === "idle") {
+            await startCancelFlow();
             return;
         }
 
