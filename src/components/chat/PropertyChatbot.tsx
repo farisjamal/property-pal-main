@@ -109,6 +109,7 @@ const PropertyChatbot = () => {
     ]);
     const [isTyping, setIsTyping] = useState(false);
     const [booking, setBooking] = useState<BookingContext>({ step: "idle" });
+    const [lastSearchResults, setLastSearchResults] = useState<ChatProperty[]>([]);
     const [tenantId, setTenantId] = useState<number | null>(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -404,8 +405,7 @@ const PropertyChatbot = () => {
 
         // Booking intent detected — start booking flow
         if (isBookingIntent(inputValue)) {
-            const recentProps = messages.flatMap((m) => m.relatedProperties || []);
-            await startBookingFlow(recentProps);
+            await startBookingFlow(lastSearchResults);
             return;
         }
 
@@ -424,8 +424,13 @@ const PropertyChatbot = () => {
             if (criteria.type) query = query.ilike("property_type", `%${criteria.type}%`);
             if (criteria.location) query = query.ilike("location", `%${criteria.location}%`);
 
-            const { data, error } = await query.eq("availability_status", "Available").limit(3);
+            const { data, error } = await query
+                .eq("availability_status", "Available")
+                .order("created_at", { ascending: false })
+                .limit(5);
             if (error) throw error;
+
+            setLastSearchResults(data || []);
 
             const botContent =
                 data && data.length > 0
