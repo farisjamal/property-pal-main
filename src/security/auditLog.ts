@@ -21,7 +21,8 @@ export type ResourceType =
   | 'ADMIN'
   | 'TENANT'
   | 'OWNER'
-  | 'AUTH';
+  | 'AUTH'
+  | 'KYC';
 
 export type Status = 'SUCCESS' | 'FAILED' | 'DENIED';
 
@@ -317,6 +318,54 @@ export const logMFAEvent = async (
     description: `MFA ${action}`,
     severity: action === 'unenrolled' ? 'WARNING' : 'INFO',
     metadata: { mfa_action: action },
+  });
+};
+
+/**
+ * Logs a KYC submission by an owner
+ */
+export const logKycSubmission = async (submissionId: string): Promise<void> => {
+  await logAuditEvent({
+    action_type: 'CREATE',
+    resource_type: 'KYC',
+    resource_id: submissionId,
+    description: 'KYC submission created',
+    severity: 'INFO',
+  });
+};
+
+/**
+ * Logs admin approval/rejection of a KYC submission
+ */
+export const logKycDecision = async (
+  submissionId: string,
+  decision: 'approved' | 'rejected',
+  reason?: string,
+): Promise<void> => {
+  await logAuditEvent({
+    action_type: 'UPDATE',
+    resource_type: 'KYC',
+    resource_id: submissionId,
+    description: `KYC submission ${decision}`,
+    severity: decision === 'rejected' ? 'WARNING' : 'INFO',
+    metadata: reason ? { reason } : undefined,
+  });
+};
+
+/**
+ * Logs admin access to a KYC document (signed URL generation)
+ */
+export const logKycDocumentAccess = async (
+  submissionId: string,
+  docKind: 'ic_front' | 'ic_back' | 'selfie',
+): Promise<void> => {
+  await logAuditEvent({
+    action_type: 'READ',
+    resource_type: 'KYC',
+    resource_id: submissionId,
+    description: `Admin viewed KYC document: ${docKind}`,
+    severity: 'INFO',
+    metadata: { doc_kind: docKind },
   });
 };
 

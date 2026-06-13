@@ -10,8 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Pencil, Trash2, Search, Home } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { encryptData, decryptData, batchDecrypt } from '@/utils/security';
-import { logUserCreation, logUserDeletion, logSensitiveDataAccess } from '@/utils/auditLog';
+import { encryptData, decryptData, batchDecrypt } from '@/security/encryption';
+import { logUserCreation, logUserDeletion, logSensitiveDataAccess } from '@/security/auditLog';
 
 interface PropertyOwner {
   owner_id: number;

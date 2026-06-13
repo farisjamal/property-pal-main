@@ -9,8 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Calendar, Clock, MapPin, User, Phone, Mail, Check, X } from 'lucide-react';
 import { format } from 'date-fns';
-import { decryptData } from '@/utils/security';
-import { logSensitiveDataAccess, logAppointmentStatusChange } from '@/utils/auditLog';
+import { decryptData } from '@/security/encryption';
+import { logSensitiveDataAccess, logAppointmentStatusChange } from '@/security/auditLog';
 import { notifyStatusUpdate } from '@/utils/n8nService';
 
 interface Appointment {

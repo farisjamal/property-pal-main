@@ -8,9 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, Lock, Mail, Phone, Calendar, Save, Loader2, KeyRound, Heart, MapPin, Bed, Bath, Trash2, ImageIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { encryptData, decryptData, batchDecrypt } from '@/utils/security';
-import { logSensitiveDataAccess, logProfileUpdate } from '@/utils/auditLog';
-import { validatePassword } from '@/utils/passwordValidation';
+import { encryptData, decryptData, batchDecrypt } from '@/security/encryption';
+import { logSensitiveDataAccess, logProfileUpdate } from '@/security/auditLog';
+import { validatePassword } from '@/security/passwordValidation';
 import MFASection from '@/components/auth/MFASection';
 
 interface ProfileData {

@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { 
-  Building2, 
-  Users, 
-  UserCog, 
-  BarChart3, 
-  LogOut, 
+import {
+  Building2,
+  Users,
+  UserCog,
+  BarChart3,
+  LogOut,
   Menu,
   X,
-  Home
+  Home,
+  ShieldCheck,
+  BadgeCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -19,6 +21,7 @@ const navItems = [
   { href: '/admin', label: 'Dashboard', icon: Home },
   { href: '/admin/users', label: 'Manage Users', icon: Users },
   { href: '/admin/owners', label: 'Property Owners', icon: UserCog },
+  { href: '/admin/kyc', label: 'KYC Review', icon: BadgeCheck },
   { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
 ];
 
@@ -28,80 +31,108 @@ const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 relative overflow-hidden flex text-foreground">
+      
+      {/* Corporate Minimalist Background */}
+      <div className="fixed inset-0 bg-background pointer-events-none z-0" />
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-zinc-100 via-transparent to-transparent dark:from-zinc-900/30 dark:via-transparent pointer-events-none z-0" />
+
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Enterprise Sidebar */}
       <aside className={cn(
-        "fixed top-0 left-0 z-50 h-full w-64 bg-card border-r border-border transform transition-transform duration-200 lg:translate-x-0",
+        "fixed top-0 left-0 z-50 h-full w-72 bg-card/80 backdrop-blur-xl border-r border-border shadow-[4px_0_24px_rgba(0,0,0,0.02)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.2)] transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-gradient-primary">
-              <Building2 className="w-5 h-5 text-primary-foreground" />
+        <div className="flex items-center justify-between p-6 border-b border-border">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+              <Building2 className="w-5 h-5 text-primary" />
             </div>
-            <span className="font-bold text-lg">Admin Panel</span>
+            <div>
+              <span className="block font-semibold text-lg tracking-tight text-foreground">PropertyBook</span>
+              <span className="block text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Admin Portal</span>
+            </div>
           </div>
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
+          <Button variant="ghost" size="icon" className="lg:hidden hover:bg-secondary/60" onClick={() => setSidebarOpen(false)}>
             <X className="w-5 h-5" />
           </Button>
         </div>
 
-        <nav className="p-4 space-y-2">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              to={item.href}
-              onClick={() => setSidebarOpen(false)}
-              className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
-                location.pathname === item.href
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-secondary text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <item.icon className="w-5 h-5" />
-              <span>{item.label}</span>
-            </Link>
-          ))}
-        </nav>
+        <div className="p-4 px-5 flex-1 overflow-y-auto">
+          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3 ml-2 mt-4">Menu</div>
+          <nav className="space-y-1">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-200",
+                    isActive
+                      ? "bg-secondary text-foreground"
+                      : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                  )}
+                >
+                  <item.icon className={cn("w-[18px] h-[18px]", isActive ? "text-primary" : "text-muted-foreground")} />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
-          <div className="mb-4 px-4">
-            <p className="text-sm font-medium">{userProfile?.name || 'Admin'}</p>
-            <p className="text-xs text-muted-foreground">{userProfile?.email}</p>
-          </div>
-          <Button variant="outline" className="w-full" onClick={signOut}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
-          </Button>
+        <div className="p-5 border-t border-border bg-card/60 mt-auto">
+           <div className="flex items-center gap-3 mb-5 px-1">
+              <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center border border-border shrink-0">
+                <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <p className="text-sm font-medium truncate text-foreground">{userProfile?.name || 'System Admin'}</p>
+                <p className="text-xs text-muted-foreground truncate">{userProfile?.email}</p>
+              </div>
+           </div>
+           <Button variant="outline" className="w-full text-sm rounded-lg border-border bg-transparent shadow-sm hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-colors" onClick={signOut}>
+             <LogOut className="w-4 h-4 mr-2" /> Sign Out
+           </Button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <div className="lg:ml-64">
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border">
-          <div className="flex items-center justify-between p-4">
-            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
-              <Menu className="w-5 h-5" />
-            </Button>
-            <h1 className="text-xl font-semibold">
-              {navItems.find(item => item.href === location.pathname)?.label || 'Dashboard'}
-            </h1>
-            <ThemeToggle />
+      {/* Main Content Area */}
+      <div className="lg:ml-72 flex-1 flex flex-col min-h-screen relative z-10 w-full overflow-hidden">
+        
+        {/* Crisp Enterprise Header */}
+        <header className="sticky top-0 z-30 pt-4 px-4 sm:px-6 lg:px-8">
+          <div className="bg-card/80 backdrop-blur-xl border border-border shadow-sm rounded-xl p-3 sm:p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" className="lg:hidden shrink-0 hover:bg-secondary/60" onClick={() => setSidebarOpen(true)}>
+                <Menu className="w-5 h-5" />
+              </Button>
+              <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
+                {navItems.find(item => item.href === location.pathname)?.label || 'Dashboard'}
+              </h1>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-md bg-secondary/40 border border-border">
+                <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-[11px] font-medium tracking-widest text-muted-foreground uppercase">System Admin</span>
+              </div>
+              <ThemeToggle />
+            </div>
           </div>
         </header>
 
         {/* Page content */}
-        <main className="p-6">
+        <main className="flex-1 p-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
           <Outlet />
         </main>
       </div>

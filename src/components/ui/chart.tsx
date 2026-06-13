@@ -60,7 +60,7 @@ ChartContainer.displayName = "Chart";
 
 // Sanitize CSS values to prevent injection via config
 function sanitizeCssValue(value: string): string {
-  return value.replace(/[^a-zA-Z0-9#(),.\s%\-_\/]/g, '');
+  return value.replace(/[^a-zA-Z0-9#(),.\s%\-_/]/g, '');
 }
 
 function sanitizeCssIdentifier(value: string): string {

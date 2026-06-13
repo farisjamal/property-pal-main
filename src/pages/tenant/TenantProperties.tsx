@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Bed, Bath, Ruler, Calendar, Search, Filter, ImageIcon, Eye, Heart } from "lucide-react";
 import PropertyDetailModal from "@/components/properties/PropertyDetailModal";
-import { logAppointmentCreation } from "@/utils/auditLog";
+import { logAppointmentCreation } from "@/security/auditLog";
 import { notifyNewBooking } from "@/utils/n8nService";
 
 interface Property {
@@ -249,6 +249,20 @@ const TenantProperties = () => {
       setIsBooking(false);
     }
   };
+  const recordPropertyView = async (propertyId: number) => {
+    if (!tenantId) return;
+    try {
+      await (supabase as any)
+        .from('property_views')
+        .upsert(
+          { tenant_id: tenantId, property_id: propertyId },
+          { onConflict: 'tenant_id,property_id', ignoreDuplicates: true }
+        );
+    } catch (err) {
+      console.warn('Failed to record property view:', err);
+    }
+  };
+
   const getTomorrowDate = () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -385,6 +399,7 @@ const TenantProperties = () => {
                   <Button variant="outline" className="flex-1" onClick={() => {
               setSelectedProperty(property);
               setDetailModalOpen(true);
+              recordPropertyView(property.property_id);
             }}>
                     <Eye className="w-4 h-4 mr-2" />
                     View

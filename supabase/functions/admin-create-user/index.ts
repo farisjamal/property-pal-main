@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
     if (!/[A-Z]/.test(pwd)) pwdErrors.push('one uppercase letter');
     if (!/[a-z]/.test(pwd)) pwdErrors.push('one lowercase letter');
     if (!/[0-9]/.test(pwd)) pwdErrors.push('one number');
-    if (!/[!@#$%^&*()_+\-=\[\]{}|;:'",.<>?/~`\\]/.test(pwd)) pwdErrors.push('one special character');
+    if (!/[!@#$%^&*()_+\-=[\]{}|;:'",.<>?/~`\\]/.test(pwd)) pwdErrors.push('one special character');
     if (pwdErrors.length > 0) {
       return new Response(
         JSON.stringify({ error: `Password too weak. Requires: ${pwdErrors.join(', ')}` }),
