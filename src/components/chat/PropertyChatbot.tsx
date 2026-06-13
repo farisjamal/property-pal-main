@@ -159,7 +159,10 @@ const PropertyChatbot = () => {
                 .select("tenant_id")
                 .eq("user_id", session.user.id)
                 .maybeSingle();
-            if (data) setTenantId(data.tenant_id);
+            if (data) {
+                setTenantId(data.tenant_id);
+                await showContextualGreeting(data.tenant_id);
+            }
         }
     };
 
@@ -300,6 +303,30 @@ const PropertyChatbot = () => {
             .update({ appointment_date: date, appointment_time: time, status: "pending" })
             .eq("appointment_id", appointmentId);
         if (error) throw error;
+    };
+
+    /** On chat open, append a greeting listing active appointments (if any). */
+    const showContextualGreeting = async (tid: number): Promise<void> => {
+        const appointments = await loadActiveAppointments(tid);
+        if (appointments.length === 0) return;
+
+        const list = appointments
+            .map(
+                (a) =>
+                    `• ${a.property?.property_type ?? "Property"} at ${a.property?.location ?? "—"} — ${a.appointment_date} at ${a.appointment_time} (${a.status})`
+            )
+            .join("\n");
+
+        addBotMessage(
+            `Welcome back! You have ${appointments.length} active appointment${appointments.length > 1 ? "s" : ""}:\n${list}\n\nWhat would you like to do?`,
+            {
+                quickReplies: [
+                    { label: "Book New Appointment", value: "intent_book" },
+                    { label: "Cancel an Appointment", value: "intent_cancel" },
+                    { label: "Reschedule an Appointment", value: "intent_reschedule" },
+                ],
+            }
+        );
     };
 
     // ---------------------------------------------------------------------------
