@@ -110,6 +110,7 @@ const PropertyChatbot = () => {
     const [isTyping, setIsTyping] = useState(false);
     const [booking, setBooking] = useState<BookingContext>({ step: "idle" });
     const [lastSearchResults, setLastSearchResults] = useState<ChatProperty[]>([]);
+    const [activeAppointments, setActiveAppointments] = useState<ChatAppointment[]>([]);
     const [tenantId, setTenantId] = useState<number | null>(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -254,6 +255,51 @@ const PropertyChatbot = () => {
 
         if (error) throw error;
         return data;
+    };
+
+    // ---------------------------------------------------------------------------
+    // Appointment management (cancel / reschedule)
+    // ---------------------------------------------------------------------------
+
+    /** Loads the tenant's actionable (pending/approved) appointments. */
+    const loadActiveAppointments = async (tid: number): Promise<ChatAppointment[]> => {
+        const { data } = await supabase
+            .from("appointment")
+            .select(`
+                appointment_id,
+                appointment_date,
+                appointment_time,
+                status,
+                property_id,
+                property:property_id (property_type, location)
+            `)
+            .eq("tenant_id", tid)
+            .in("status", ["pending", "approved"])
+            .order("appointment_date", { ascending: true });
+        const appointments = (data || []) as unknown as ChatAppointment[];
+        setActiveAppointments(appointments);
+        return appointments;
+    };
+
+    const cancelAppointment = async (appointmentId: number): Promise<void> => {
+        const { error } = await supabase
+            .from("appointment")
+            .update({ status: "cancelled" })
+            .eq("appointment_id", appointmentId);
+        if (error) throw error;
+    };
+
+    /** Resets status to pending so the owner must re-approve the new time. */
+    const rescheduleAppointment = async (
+        appointmentId: number,
+        date: string,
+        time: string
+    ): Promise<void> => {
+        const { error } = await supabase
+            .from("appointment")
+            .update({ appointment_date: date, appointment_time: time, status: "pending" })
+            .eq("appointment_id", appointmentId);
+        if (error) throw error;
     };
 
     // ---------------------------------------------------------------------------
