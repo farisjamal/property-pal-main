@@ -816,7 +816,11 @@ const PropertyChatbot = () => {
                             <span className="font-semibold">PropertyPal AI</span>
                             {booking.step !== "idle" && (
                                 <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
-                                    Booking
+                                    {["cancel_select", "cancel_confirm"].includes(booking.step)
+                                        ? "Cancelling"
+                                        : ["reschedule_select", "reschedule_date", "reschedule_slot", "reschedule_confirm"].includes(booking.step)
+                                            ? "Rescheduling"
+                                            : "Booking"}
                                 </span>
                             )}
                         </div>
@@ -924,9 +928,9 @@ const PropertyChatbot = () => {
                     <div className="p-3 border-t bg-background rounded-b-lg flex gap-2 flex-shrink-0">
                         <Input
                             placeholder={
-                                booking.step === "select_date"
-                                    ? "Enter a date (e.g. 2026-03-15)..."
-                                    : "Search properties or say 'book appointment'..."
+                                booking.step === "select_date" || booking.step === "reschedule_date"
+                                    ? "Enter a date (e.g. 2026-06-15)..."
+                                    : "Search properties or ask to book / cancel / reschedule..."
                             }
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
