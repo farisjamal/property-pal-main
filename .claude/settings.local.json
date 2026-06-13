@@ -12,7 +12,9 @@
       "mcp__plugin_supabase_supabase__get_publishable_keys",
       "Bash(npm run:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "PowerShell(npm run build 2>&1)",
+      "PowerShell(git add src/components/chat/PropertyChatbot.tsx)"
     ]
   },
   "enabledPlugins": {

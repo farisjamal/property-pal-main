@@ -1,0 +1,20 @@
+﻿---
+paths:
+  - "src/utils/**"
+  - "src/hooks/**"
+  - "src/integrations/supabase/**"
+  - "supabase/functions/**"
+---
+
+# Security
+
+- Validate all user input at the system boundary. Never trust request parameters.
+- Use parameterized queries — never concatenate user input into SQL or shell commands.
+- Sanitize output to prevent XSS. Use framework-provided escaping.
+- Authentication tokens must be short-lived. Store refresh tokens server-side only.
+- Never log secrets, tokens, passwords, or PII.
+- Use constant-time comparison for secrets and tokens.
+- Set appropriate CORS, CSP, and security headers.
+- Rate-limit authentication endpoints.
+- Supabase RLS policies must cover every table — never rely solely on app-level checks.
+- Edge Function secrets live in Supabase dashboard only — never in repo files.
