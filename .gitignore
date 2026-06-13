@@ -43,3 +43,4 @@ production-auth.md
 # Claude Code project instructions (local-only; do not publish)
 CLAUDE.md
 CLAUDE.local.md
+.vercel
