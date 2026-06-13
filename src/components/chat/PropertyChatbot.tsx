@@ -7,7 +7,14 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { notifyNewBooking } from "@/utils/n8nService";
-import { logAppointmentCreation } from "@/utils/auditLog";
+import { logAppointmentCreation, logAppointmentStatusChange } from "@/utils/auditLog";
+import {
+    extractSearchCriteria,
+    parseDate,
+    isBookingIntent,
+    isCancelIntent,
+    isRescheduleIntent,
+} from "./chatbotHelpers";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,7 +46,30 @@ interface Message {
     quickReplies?: QuickReply[];
 }
 
-type BookingStep = "idle" | "select_property" | "select_date" | "select_slot" | "confirm";
+interface ChatAppointment {
+    appointment_id: number;
+    appointment_date: string;
+    appointment_time: string;
+    status: string;
+    property_id: number;
+    property: {
+        property_type: string;
+        location: string;
+    } | null;
+}
+
+type BookingStep =
+    | "idle"
+    | "select_property"
+    | "select_date"
+    | "select_slot"
+    | "confirm"
+    | "cancel_select"
+    | "cancel_confirm"
+    | "reschedule_select"
+    | "reschedule_date"
+    | "reschedule_slot"
+    | "reschedule_confirm";
 
 interface BookingContext {
     step: BookingStep;
@@ -50,6 +80,10 @@ interface BookingContext {
     };
     date?: string;
     time?: string;
+    appointmentId?: number;
+    appointmentStatus?: string;
+    originalDate?: string;
+    originalTime?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -57,68 +91,6 @@ interface BookingContext {
 // ---------------------------------------------------------------------------
 
 const ALL_TIME_SLOTS = ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"];
-
-const BOOKING_KEYWORDS = ["book", "appointment", "schedule", "viewing", "visit", "arrange"];
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const extractSearchCriteria = (text: string) => {
-    try {
-        if (!text) return {};
-        const criteria: any = {};
-        const lower = text.toLowerCase();
-
-        const bedMatch = lower.match(/(\d+)\s*(?:bed|room)/);
-        if (bedMatch) criteria.minBeds = parseInt(bedMatch[1]);
-
-        const priceMatch =
-            lower.match(/(?:under|rm|max|budget)\s*(\d+)/) ||
-            lower.match(/<\s*(\d+)/);
-        if (priceMatch) criteria.maxPrice = parseInt(priceMatch[1]);
-
-        const types = ["apartment", "condo", "condominium", "terrace", "flat", "bungalow", "semi-d", "house"];
-        const foundType = types.find((t) => lower.includes(t));
-        if (foundType) criteria.type = foundType === "condo" ? "condominium" : foundType;
-
-        const locations = ["johor bahru", "jb", "skudai", "mount austin", "pasir gudang", "kulai", "muar", "batu pahat"];
-        const foundLoc = locations.find((l) => lower.includes(l));
-        if (foundLoc) criteria.location = foundLoc;
-
-        return criteria;
-    } catch {
-        return {};
-    }
-};
-
-const isBookingIntent = (text: string) =>
-    BOOKING_KEYWORDS.some((k) => text.toLowerCase().includes(k));
-
-/**
- * Accepts ISO dates (2026-03-15), "March 15", "15 March", "15/3/2026", etc.
- * Returns { date: ISO string } on success, { error: "past" | "invalid" } on failure.
- */
-const parseDate = (text: string): { date: string } | { error: "past" | "invalid" } => {
-    const trimmed = text.trim();
-    const todayStr = new Date().toISOString().split("T")[0]; // compare dates only
-
-    // ISO format: 2026-03-15
-    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-        const d = new Date(trimmed);
-        if (isNaN(d.getTime())) return { error: "invalid" };
-        return trimmed >= todayStr ? { date: trimmed } : { error: "past" };
-    }
-
-    // Try "March 15" or "15 March" — append current year if missing
-    const currentYear = new Date().getFullYear();
-    const withYear = /\d{4}/.test(trimmed) ? trimmed : `${trimmed} ${currentYear}`;
-    const parsed = new Date(withYear);
-    if (isNaN(parsed.getTime())) return { error: "invalid" };
-
-    const iso = parsed.toISOString().split("T")[0];
-    return iso >= todayStr ? { date: iso } : { error: "past" };
-};
 
 // ---------------------------------------------------------------------------
 // Component
