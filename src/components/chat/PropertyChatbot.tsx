@@ -7,7 +7,14 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { notifyNewBooking } from "@/utils/n8nService";
-import { logAppointmentCreation } from "@/security/auditLog";
+import { logAppointmentCreation, logAppointmentStatusChange } from "@/security/auditLog";
+import {
+    extractSearchCriteria,
+    parseDate,
+    isBookingIntent,
+    isCancelIntent,
+    isRescheduleIntent,
+} from "./chatbotHelpers";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,7 +46,30 @@ interface Message {
     quickReplies?: QuickReply[];
 }
 
-type BookingStep = "idle" | "select_property" | "select_date" | "select_slot" | "confirm";
+interface ChatAppointment {
+    appointment_id: number;
+    appointment_date: string;
+    appointment_time: string;
+    status: string;
+    property_id: number;
+    property: {
+        property_type: string;
+        location: string;
+    } | null;
+}
+
+type BookingStep =
+    | "idle"
+    | "select_property"
+    | "select_date"
+    | "select_slot"
+    | "confirm"
+    | "cancel_select"
+    | "cancel_confirm"
+    | "reschedule_select"
+    | "reschedule_date"
+    | "reschedule_slot"
+    | "reschedule_confirm";
 
 interface BookingContext {
     step: BookingStep;
@@ -50,6 +80,10 @@ interface BookingContext {
     };
     date?: string;
     time?: string;
+    appointmentId?: number;
+    appointmentStatus?: string;
+    originalDate?: string;
+    originalTime?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -57,68 +91,6 @@ interface BookingContext {
 // ---------------------------------------------------------------------------
 
 const ALL_TIME_SLOTS = ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"];
-
-const BOOKING_KEYWORDS = ["book", "appointment", "schedule", "viewing", "visit", "arrange"];
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const extractSearchCriteria = (text: string) => {
-    try {
-        if (!text) return {};
-        const criteria: any = {};
-        const lower = text.toLowerCase();
-
-        const bedMatch = lower.match(/(\d+)\s*(?:bed|room)/);
-        if (bedMatch) criteria.minBeds = parseInt(bedMatch[1]);
-
-        const priceMatch =
-            lower.match(/(?:under|rm|max|budget)\s*(\d+)/) ||
-            lower.match(/<\s*(\d+)/);
-        if (priceMatch) criteria.maxPrice = parseInt(priceMatch[1]);
-
-        const types = ["apartment", "condo", "condominium", "terrace", "flat", "bungalow", "semi-d", "house"];
-        const foundType = types.find((t) => lower.includes(t));
-        if (foundType) criteria.type = foundType === "condo" ? "condominium" : foundType;
-
-        const locations = ["johor bahru", "jb", "skudai", "mount austin", "pasir gudang", "kulai", "muar", "batu pahat"];
-        const foundLoc = locations.find((l) => lower.includes(l));
-        if (foundLoc) criteria.location = foundLoc;
-
-        return criteria;
-    } catch {
-        return {};
-    }
-};
-
-const isBookingIntent = (text: string) =>
-    BOOKING_KEYWORDS.some((k) => text.toLowerCase().includes(k));
-
-/**
- * Accepts ISO dates (2026-03-15), "March 15", "15 March", "15/3/2026", etc.
- * Returns { date: ISO string } on success, { error: "past" | "invalid" } on failure.
- */
-const parseDate = (text: string): { date: string } | { error: "past" | "invalid" } => {
-    const trimmed = text.trim();
-    const todayStr = new Date().toISOString().split("T")[0]; // compare dates only
-
-    // ISO format: 2026-03-15
-    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-        const d = new Date(trimmed);
-        if (isNaN(d.getTime())) return { error: "invalid" };
-        return trimmed >= todayStr ? { date: trimmed } : { error: "past" };
-    }
-
-    // Try "March 15" or "15 March" — append current year if missing
-    const currentYear = new Date().getFullYear();
-    const withYear = /\d{4}/.test(trimmed) ? trimmed : `${trimmed} ${currentYear}`;
-    const parsed = new Date(withYear);
-    if (isNaN(parsed.getTime())) return { error: "invalid" };
-
-    const iso = parsed.toISOString().split("T")[0];
-    return iso >= todayStr ? { date: iso } : { error: "past" };
-};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -137,6 +109,8 @@ const PropertyChatbot = () => {
     ]);
     const [isTyping, setIsTyping] = useState(false);
     const [booking, setBooking] = useState<BookingContext>({ step: "idle" });
+    const [lastSearchResults, setLastSearchResults] = useState<ChatProperty[]>([]);
+    const [activeAppointments, setActiveAppointments] = useState<ChatAppointment[]>([]);
     const [tenantId, setTenantId] = useState<number | null>(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -185,7 +159,10 @@ const PropertyChatbot = () => {
                 .select("tenant_id")
                 .eq("user_id", session.user.id)
                 .maybeSingle();
-            if (data) setTenantId(data.tenant_id);
+            if (data) {
+                setTenantId(data.tenant_id);
+                await showContextualGreeting(data.tenant_id);
+            }
         }
     };
 
@@ -284,6 +261,151 @@ const PropertyChatbot = () => {
     };
 
     // ---------------------------------------------------------------------------
+    // Appointment management (cancel / reschedule)
+    // ---------------------------------------------------------------------------
+
+    /** Loads the tenant's actionable (pending/approved) appointments. */
+    const loadActiveAppointments = async (tid: number): Promise<ChatAppointment[]> => {
+        const { data } = await supabase
+            .from("appointment")
+            .select(`
+                appointment_id,
+                appointment_date,
+                appointment_time,
+                status,
+                property_id,
+                property:property_id (property_type, location)
+            `)
+            .eq("tenant_id", tid)
+            .in("status", ["pending", "approved"])
+            .order("appointment_date", { ascending: true });
+        const appointments = (data || []) as unknown as ChatAppointment[];
+        setActiveAppointments(appointments);
+        return appointments;
+    };
+
+    const cancelAppointment = async (appointmentId: number): Promise<void> => {
+        const { error } = await supabase
+            .from("appointment")
+            .update({ status: "cancelled" })
+            .eq("appointment_id", appointmentId);
+        if (error) throw error;
+    };
+
+    /** Resets status to pending so the owner must re-approve the new time. */
+    const rescheduleAppointment = async (
+        appointmentId: number,
+        date: string,
+        time: string
+    ): Promise<void> => {
+        const { error } = await supabase
+            .from("appointment")
+            .update({ appointment_date: date, appointment_time: time, status: "pending" })
+            .eq("appointment_id", appointmentId);
+        if (error) throw error;
+    };
+
+    /** On chat open, append a greeting listing active appointments (if any). */
+    const showContextualGreeting = async (tid: number): Promise<void> => {
+        const appointments = await loadActiveAppointments(tid);
+        if (appointments.length === 0) return;
+
+        const list = appointments
+            .map(
+                (a) =>
+                    `• ${a.property?.property_type ?? "Property"} at ${a.property?.location ?? "—"} — ${a.appointment_date} at ${a.appointment_time} (${a.status})`
+            )
+            .join("\n");
+
+        addBotMessage(
+            `Welcome back! You have ${appointments.length} active appointment${appointments.length > 1 ? "s" : ""}:\n${list}\n\nWhat would you like to do?`,
+            {
+                quickReplies: [
+                    { label: "Book New Appointment", value: "intent_book" },
+                    { label: "Cancel an Appointment", value: "intent_cancel" },
+                    { label: "Reschedule an Appointment", value: "intent_reschedule" },
+                ],
+            }
+        );
+    };
+
+    /** Loads actionable appointments and prompts the user to pick one to cancel. */
+    const startCancelFlow = async (): Promise<void> => {
+        if (!isAuthenticated) {
+            addBotMessage("You need to be logged in to manage appointments.", {
+                quickReplies: [{ label: "Go to Login", value: "goto_login" }],
+            });
+            return;
+        }
+        if (!tenantId) {
+            addBotMessage("Only tenant accounts can manage appointments.");
+            return;
+        }
+
+        setIsTyping(true);
+        try {
+            const appointments = await loadActiveAppointments(tenantId);
+            if (appointments.length === 0) {
+                addBotMessage("You have no active appointments to cancel.");
+                return;
+            }
+
+            setBooking({ step: "cancel_select" });
+            addBotMessage("Which appointment would you like to cancel?", {
+                quickReplies: [
+                    ...appointments.map((a) => ({
+                        label: `${a.property?.property_type ?? "Property"} — ${a.appointment_date} at ${a.appointment_time}`,
+                        value: `cancel_appt_${a.appointment_id}`,
+                    })),
+                    { label: "Never mind", value: "cancel_booking" },
+                ],
+            });
+        } catch {
+            addBotMessage("Sorry, I couldn't load your appointments. Please try again.");
+        } finally {
+            setIsTyping(false);
+        }
+    };
+
+    /** Loads actionable appointments and prompts the user to pick one to reschedule. */
+    const startRescheduleFlow = async (): Promise<void> => {
+        if (!isAuthenticated) {
+            addBotMessage("You need to be logged in to manage appointments.", {
+                quickReplies: [{ label: "Go to Login", value: "goto_login" }],
+            });
+            return;
+        }
+        if (!tenantId) {
+            addBotMessage("Only tenant accounts can manage appointments.");
+            return;
+        }
+
+        setIsTyping(true);
+        try {
+            const appointments = await loadActiveAppointments(tenantId);
+            if (appointments.length === 0) {
+                addBotMessage("You have no active appointments to reschedule.");
+                return;
+            }
+
+            setBooking({ step: "reschedule_select" });
+            addBotMessage("Which appointment would you like to reschedule?", {
+                quickReplies: [
+                    ...appointments.map((a) => ({
+                        label: `${a.property?.property_type ?? "Property"} — ${a.appointment_date} at ${a.appointment_time}`,
+                        value: `reschedule_appt_${a.appointment_id}`,
+                    })),
+                    { label: "Never mind", value: "cancel_booking" },
+                ],
+            });
+        } catch {
+            addBotMessage("Sorry, I couldn't load your appointments. Please try again.");
+        } finally {
+            setIsTyping(false);
+        }
+    };
+
+    // ---------------------------------------------------------------------------
     // Quick-reply button handler
     // ---------------------------------------------------------------------------
 
@@ -293,9 +415,154 @@ const PropertyChatbot = () => {
             return;
         }
 
+        if (value === "intent_book") {
+            await startBookingFlow(lastSearchResults);
+            return;
+        }
+
+        if (value === "intent_cancel") {
+            await startCancelFlow();
+            return;
+        }
+
+        if (value === "intent_reschedule") {
+            await startRescheduleFlow();
+            return;
+        }
+
+        if (value === "dismiss") {
+            addBotMessage("No problem! Let me know if you need anything.");
+            return;
+        }
+
         if (value === "cancel_booking") {
             setBooking({ step: "idle" });
             addBotMessage("Booking cancelled. Is there anything else I can help you with?");
+            return;
+        }
+
+        // Cancel: appointment selected from list
+        if (value.startsWith("cancel_appt_") && booking.step === "cancel_select") {
+            const appointmentId = parseInt(value.replace("cancel_appt_", ""));
+            const selected = activeAppointments.find((a) => a.appointment_id === appointmentId);
+            if (!selected) return;
+
+            setBooking((prev) => ({
+                ...prev,
+                step: "cancel_confirm",
+                appointmentId: selected.appointment_id,
+                appointmentStatus: selected.status,
+            }));
+
+            addBotMessage(
+                `Are you sure you want to cancel this appointment?\n\n📍 ${selected.property?.property_type ?? "Property"} at ${selected.property?.location ?? "—"}\n📅 ${selected.appointment_date} at ${selected.appointment_time}`,
+                {
+                    quickReplies: [
+                        { label: "Yes, Cancel It", value: "confirm_cancel" },
+                        { label: "No, Keep It", value: "cancel_booking" },
+                    ],
+                }
+            );
+            return;
+        }
+
+        // Cancel: confirmed
+        if (value === "confirm_cancel" && booking.step === "cancel_confirm") {
+            if (!booking.appointmentId || !booking.appointmentStatus) return;
+
+            setIsTyping(true);
+            try {
+                await cancelAppointment(booking.appointmentId);
+                await logAppointmentStatusChange(
+                    booking.appointmentId.toString(),
+                    booking.appointmentStatus,
+                    "cancelled"
+                );
+
+                setBooking({ step: "idle" });
+                addBotMessage(
+                    "✅ Appointment cancelled successfully. Would you like to book a new one?",
+                    {
+                        quickReplies: [
+                            { label: "Book New Appointment", value: "intent_book" },
+                            { label: "No Thanks", value: "dismiss" },
+                        ],
+                    }
+                );
+            } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : "Unknown error";
+                addBotMessage(`Sorry, cancellation failed: ${message}. Please try again.`);
+            } finally {
+                setIsTyping(false);
+            }
+            return;
+        }
+
+        // Reschedule: appointment selected from list
+        if (value.startsWith("reschedule_appt_") && booking.step === "reschedule_select") {
+            const appointmentId = parseInt(value.replace("reschedule_appt_", ""));
+            const selected = activeAppointments.find((a) => a.appointment_id === appointmentId);
+            if (!selected) return;
+
+            setBooking({
+                step: "reschedule_date",
+                appointmentId: selected.appointment_id,
+                appointmentStatus: selected.status,
+                property: {
+                    property_id: selected.property_id,
+                    property_type: selected.property?.property_type ?? "",
+                    location: selected.property?.location ?? "",
+                },
+                originalDate: selected.appointment_date,
+                originalTime: selected.appointment_time,
+            });
+
+            addBotMessage(
+                `Current booking: ${selected.property?.property_type ?? "Property"} at ${selected.property?.location ?? "—"}\n📅 ${selected.appointment_date} at ${selected.appointment_time}\n\nWhat new date would you like? (e.g. 2026-06-15 or 'June 15')`
+            );
+            return;
+        }
+
+        // Reschedule: time slot selected
+        if (value.startsWith("rslot_") && booking.step === "reschedule_slot") {
+            const slot = value.replace("rslot_", "");
+            setBooking((prev) => ({ ...prev, step: "reschedule_confirm", time: slot }));
+            addBotMessage(
+                `Please confirm your reschedule:\n\n📍 ${booking.property?.property_type} at ${booking.property?.location}\n📅 ${booking.date} at ${slot}\n\n(Previously: ${booking.originalDate} at ${booking.originalTime})`,
+                {
+                    quickReplies: [
+                        { label: "Yes, Reschedule", value: "confirm_reschedule" },
+                        { label: "No, Cancel", value: "cancel_booking" },
+                    ],
+                }
+            );
+            return;
+        }
+
+        // Reschedule: confirmed
+        if (value === "confirm_reschedule" && booking.step === "reschedule_confirm") {
+            if (!booking.appointmentId || !booking.date || !booking.time || !booking.appointmentStatus) return;
+
+            setIsTyping(true);
+            try {
+                await rescheduleAppointment(booking.appointmentId, booking.date, booking.time);
+                await logAppointmentStatusChange(
+                    booking.appointmentId.toString(),
+                    booking.appointmentStatus,
+                    "pending"
+                );
+                notifyNewBooking(booking.appointmentId);
+
+                setBooking({ step: "idle" });
+                addBotMessage(
+                    `✅ Appointment rescheduled!\n\n📍 ${booking.property?.property_type} at ${booking.property?.location}\n📅 ${booking.date} at ${booking.time}\n\nYour appointment is now pending owner re-approval. You'll receive a confirmation email shortly.`
+                );
+            } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : "Unknown error";
+                addBotMessage(`Sorry, rescheduling failed: ${message}. Please try again.`);
+            } finally {
+                setIsTyping(false);
+            }
             return;
         }
 
@@ -409,6 +676,44 @@ const PropertyChatbot = () => {
         }
     };
 
+    const handleRescheduleDateInput = async (text: string): Promise<void> => {
+        const result = parseDate(text);
+        if ("error" in result) {
+            addBotMessage(
+                result.error === "past"
+                    ? "That date is in the past. Please pick a future date."
+                    : "I couldn't understand that date. Please use a format like 2026-06-15 or 'June 15'."
+            );
+            return;
+        }
+        const date = result.date;
+
+        setIsTyping(true);
+        try {
+            const available = await getAvailableSlots(booking.property!.property_id, date);
+
+            if (available.length === 0) {
+                addBotMessage(
+                    `No available time slots on ${date} for this property. Try a different date?`,
+                    { quickReplies: [{ label: "Cancel", value: "cancel_booking" }] }
+                );
+                return;
+            }
+
+            setBooking((prev) => ({ ...prev, step: "reschedule_slot", date }));
+            addBotMessage(`Available times on ${date}. Pick a slot:`, {
+                quickReplies: available.map((slot) => ({
+                    label: slot,
+                    value: `rslot_${slot}`,
+                })),
+            });
+        } catch {
+            addBotMessage("Sorry, I couldn't check availability. Please try again.");
+        } finally {
+            setIsTyping(false);
+        }
+    };
+
     // ---------------------------------------------------------------------------
     // Main send handler
     // ---------------------------------------------------------------------------
@@ -430,10 +735,27 @@ const PropertyChatbot = () => {
             return;
         }
 
+        // Waiting for a new reschedule date
+        if (booking.step === "reschedule_date") {
+            await handleRescheduleDateInput(inputValue);
+            return;
+        }
+
+        // Cancel intent — start cancel flow
+        if (isCancelIntent(inputValue) && booking.step === "idle") {
+            await startCancelFlow();
+            return;
+        }
+
+        // Reschedule intent — start reschedule flow
+        if (isRescheduleIntent(inputValue) && booking.step === "idle") {
+            await startRescheduleFlow();
+            return;
+        }
+
         // Booking intent detected — start booking flow
         if (isBookingIntent(inputValue)) {
-            const recentProps = messages.flatMap((m) => m.relatedProperties || []);
-            await startBookingFlow(recentProps);
+            await startBookingFlow(lastSearchResults);
             return;
         }
 
@@ -452,8 +774,13 @@ const PropertyChatbot = () => {
             if (criteria.type) query = query.ilike("property_type", `%${criteria.type}%`);
             if (criteria.location) query = query.ilike("location", `%${criteria.location}%`);
 
-            const { data, error } = await query.eq("availability_status", "Available").limit(3);
+            const { data, error } = await query
+                .eq("availability_status", "Available")
+                .order("created_at", { ascending: false })
+                .limit(5);
             if (error) throw error;
+
+            setLastSearchResults(data || []);
 
             const botContent =
                 data && data.length > 0
@@ -489,7 +816,11 @@ const PropertyChatbot = () => {
                             <span className="font-semibold">PropertyPal AI</span>
                             {booking.step !== "idle" && (
                                 <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
-                                    Booking
+                                    {["cancel_select", "cancel_confirm"].includes(booking.step)
+                                        ? "Cancelling"
+                                        : ["reschedule_select", "reschedule_date", "reschedule_slot", "reschedule_confirm"].includes(booking.step)
+                                            ? "Rescheduling"
+                                            : "Booking"}
                                 </span>
                             )}
                         </div>
@@ -597,9 +928,9 @@ const PropertyChatbot = () => {
                     <div className="p-3 border-t bg-background rounded-b-lg flex gap-2 flex-shrink-0">
                         <Input
                             placeholder={
-                                booking.step === "select_date"
-                                    ? "Enter a date (e.g. 2026-03-15)..."
-                                    : "Search properties or say 'book appointment'..."
+                                booking.step === "select_date" || booking.step === "reschedule_date"
+                                    ? "Enter a date (e.g. 2026-06-15)..."
+                                    : "Search properties or ask to book / cancel / reschedule..."
                             }
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}

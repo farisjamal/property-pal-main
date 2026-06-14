@@ -43,6 +43,8 @@ const Auth = () => {
   const [forgotSubmitting, setForgotSubmitting] = useState(false);
   const [mfaPending, setMfaPending] = useState(false);
   const [pendingRoleId, setPendingRoleId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState('login');
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
   const [registerData, setRegisterData] = useState({
     name: '',
     email: '',
@@ -290,20 +292,13 @@ const Auth = () => {
       // 2. user_roles record
       // 3. Profile record (tenant/property_owner) based on role_id
 
+      // Email confirmation is enforced server-side — never auto-login here.
+      // Surface a screen prompting the user to verify via the emailed link.
+      setRegisteredEmail(validated.email);
       toast({
-        title: 'Registration Successful!',
-        description: 'Please check your email to confirm your account, or log in directly if email confirmation is disabled.',
+        title: 'Confirm your email',
+        description: `We've sent a confirmation link to ${validated.email}.`,
       });
-
-      // Try to log in immediately (works if email confirmation is disabled)
-      const { data: loginData } = await supabase.auth.signInWithPassword({
-        email: validated.email,
-        password: validated.password,
-      });
-
-      if (loginData.session) {
-        redirectBasedOnRole(validated.roleId);
-      }
     } catch (error: any) {
       console.error('Registration error:', error);
 
@@ -319,6 +314,31 @@ const Auth = () => {
       toast({
         title: 'Registration Failed',
         description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!registeredEmail) return;
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: registeredEmail,
+        options: { emailRedirectTo: `${window.location.origin}/` },
+      });
+      if (error) throw error;
+      toast({
+        title: 'Confirmation email sent',
+        description: `We've re-sent the link to ${registeredEmail}.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Could not resend email',
+        description: error.message ?? 'Please try again in a moment.',
         variant: 'destructive',
       });
     } finally {
@@ -433,7 +453,7 @@ const Auth = () => {
             <span className="font-display font-semibold text-lg">PropertyPal</span>
           </Link>
 
-          <Tabs defaultValue="login">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
             {/* Tab selector */}
             <TabsList className="grid w-full grid-cols-2 h-11 bg-muted/50 p-1 mb-8">
               <TabsTrigger value="login" className="rounded-md font-medium text-sm">
@@ -518,6 +538,45 @@ const Auth = () => {
 
             {/* ── Register tab ── */}
             <TabsContent value="register">
+              {registeredEmail ? (
+                <div className="text-center py-4">
+                  <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+                    <Mail className="h-7 w-7 text-primary" />
+                  </div>
+                  <h1 className="text-2xl font-semibold text-foreground tracking-tight">Check your email</h1>
+                  <p className="text-muted-foreground text-sm mt-2">
+                    We've sent a confirmation link to{' '}
+                    <span className="font-medium text-foreground">{registeredEmail}</span>.
+                    Click the link in that email to activate your account before signing in.
+                  </p>
+                  <p className="text-muted-foreground text-xs mt-4">
+                    Didn't get it? Check your spam folder, or resend below.
+                  </p>
+
+                  <div className="mt-6 space-y-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full h-11 font-medium"
+                      onClick={handleResendConfirmation}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Sending...' : 'Resend confirmation email'}
+                    </Button>
+                    <Button
+                      type="button"
+                      className="w-full h-11 font-medium"
+                      onClick={() => {
+                        setRegisteredEmail(null);
+                        setActiveTab('login');
+                      }}
+                    >
+                      Back to sign in
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+              <>
               <div className="mb-7">
                 <h1 className="text-2xl font-semibold text-foreground tracking-tight">Create account</h1>
                 <p className="text-muted-foreground text-sm mt-1.5">Join thousands of users on PropertyPal</p>
@@ -634,6 +693,8 @@ const Auth = () => {
                   {isLoading ? 'Creating account...' : 'Create Account'}
                 </Button>
               </form>
+              </>
+              )}
             </TabsContent>
           </Tabs>
         </div>
