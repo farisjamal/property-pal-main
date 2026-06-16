@@ -60,7 +60,7 @@
             },
             {
               "name": "html",
-              "value": "=<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px'>\n  <h2 style='color:#7c3aed'>Viewing Reminder</h2>\n  <p>Hi <strong>{{ $('Get Due Appointments').item.json.tenant_name }}</strong>,</p>\n  <p>This is a friendly reminder about your upcoming property viewing.</p>\n  <div style='background:#f5f3ff;border-left:4px solid #7c3aed;padding:16px;border-radius:4px;margin:16px 0'>\n    <p style='margin:4px 0'><strong>Property:</strong> {{ $('Get Due Appointments').item.json.property_type }} at {{ $('Get Due Appointments').item.json.property_location }}</p>\n    <p style='margin:4px 0'><strong>Date:</strong> {{ $('Get Due Appointments').item.json.appointment_date }}</p>\n    <p style='margin:4px 0'><strong>Time:</strong> {{ $('Get Due Appointments').item.json.appointment_time }}</p>\n    <p style='margin:4px 0'><strong>Owner:</strong> {{ $('Get Due Appointments').item.json.owner_name }}</p>\n  </div>\n  <p>Please arrive on time. If you need to cancel or reschedule, do so from your PropertyPal dashboard.</p>\n  <p style='color:#6b7280;font-size:12px;margin-top:32px'>This is an automated reminder from PropertyPal.</p>\n</div>"
+              "value": "=<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px'>\n  <h2 style='color:#7c3aed'>Viewing Reminder</h2>\n  <p>Hi <strong>{{ String($('Get Due Appointments').item.json.tenant_name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}</strong>,</p>\n  <p>This is a friendly reminder about your upcoming property viewing.</p>\n  <div style='background:#f5f3ff;border-left:4px solid #7c3aed;padding:16px;border-radius:4px;margin:16px 0'>\n    <p style='margin:4px 0'><strong>Property:</strong> {{ String($('Get Due Appointments').item.json.property_type).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }} at {{ String($('Get Due Appointments').item.json.property_location).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}</p>\n    <p style='margin:4px 0'><strong>Date:</strong> {{ $('Get Due Appointments').item.json.appointment_date }}</p>\n    <p style='margin:4px 0'><strong>Time:</strong> {{ $('Get Due Appointments').item.json.appointment_time }}</p>\n    <p style='margin:4px 0'><strong>Owner:</strong> {{ String($('Get Due Appointments').item.json.owner_name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}</p>\n  </div>\n  <p>Please arrive on time. If you need to cancel or reschedule, do so from your PropertyPal dashboard.</p>\n  <p style='color:#6b7280;font-size:12px;margin-top:32px'>This is an automated reminder from PropertyPal.</p>\n</div>"
             }
           ]
         },
@@ -103,7 +103,7 @@
             },
             {
               "name": "html",
-              "value": "=<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px'>\n  <h2 style='color:#7c3aed'>Upcoming Viewing Reminder</h2>\n  <p>Hi <strong>{{ $('Get Due Appointments').item.json.owner_name }}</strong>,</p>\n  <p>A tenant has an approved viewing for your property coming up.</p>\n  <div style='background:#f5f3ff;border-left:4px solid #7c3aed;padding:16px;border-radius:4px;margin:16px 0'>\n    <p style='margin:4px 0'><strong>Property:</strong> {{ $('Get Due Appointments').item.json.property_type }} at {{ $('Get Due Appointments').item.json.property_location }}</p>\n    <p style='margin:4px 0'><strong>Tenant:</strong> {{ $('Get Due Appointments').item.json.tenant_name }}</p>\n    <p style='margin:4px 0'><strong>Date:</strong> {{ $('Get Due Appointments').item.json.appointment_date }}</p>\n    <p style='margin:4px 0'><strong>Time:</strong> {{ $('Get Due Appointments').item.json.appointment_time }}</p>\n  </div>\n  <p>Please be available to host the viewing. You can manage appointments from your PropertyPal dashboard.</p>\n  <p style='color:#6b7280;font-size:12px;margin-top:32px'>This is an automated reminder from PropertyPal.</p>\n</div>"
+              "value": "=<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px'>\n  <h2 style='color:#7c3aed'>Upcoming Viewing Reminder</h2>\n  <p>Hi <strong>{{ String($('Get Due Appointments').item.json.owner_name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}</strong>,</p>\n  <p>A tenant has an approved viewing for your property coming up.</p>\n  <div style='background:#f5f3ff;border-left:4px solid #7c3aed;padding:16px;border-radius:4px;margin:16px 0'>\n    <p style='margin:4px 0'><strong>Property:</strong> {{ String($('Get Due Appointments').item.json.property_type).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }} at {{ String($('Get Due Appointments').item.json.property_location).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}</p>\n    <p style='margin:4px 0'><strong>Tenant:</strong> {{ String($('Get Due Appointments').item.json.tenant_name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}</p>\n    <p style='margin:4px 0'><strong>Date:</strong> {{ $('Get Due Appointments').item.json.appointment_date }}</p>\n    <p style='margin:4px 0'><strong>Time:</strong> {{ $('Get Due Appointments').item.json.appointment_time }}</p>\n  </div>\n  <p>Please be available to host the viewing. You can manage appointments from your PropertyPal dashboard.</p>\n  <p style='color:#6b7280;font-size:12px;margin-top:32px'>This is an automated reminder from PropertyPal.</p>\n</div>"
             }
           ]
         },
@@ -125,8 +125,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE public.appointment\nSET reminder_sent_at = now()\nWHERE appointment_id = {{ $('Get Due Appointments').item.json.appointment_id }};",
-        "options": {}
+        "query": "UPDATE public.appointment\nSET reminder_sent_at = now()\nWHERE appointment_id = $1;",
+        "options": {
+          "queryReplacement": "={{ [$('Get Due Appointments').item.json.appointment_id] }}"
+        }
       },
       "id": "node-mark-reminded",
       "name": "Mark Reminded",
@@ -143,8 +145,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO public.notifications (type, recipient_type, recipient_email, subject, status)\nVALUES\n  ('appointment_reminder', 'tenant', '{{ $('Get Due Appointments').item.json.tenant_email }}', 'Reminder: Your PropertyPal viewing is coming up', 'sent'),\n  ('appointment_reminder', 'owner',  '{{ $('Get Due Appointments').item.json.owner_email }}',  'Reminder: An upcoming viewing for your property', 'sent');",
-        "options": {}
+        "query": "INSERT INTO public.notifications (type, recipient_type, recipient_email, subject, status)\nVALUES\n  ('appointment_reminder', 'tenant', $1, 'Reminder: Your PropertyPal viewing is coming up', 'sent'),\n  ('appointment_reminder', 'owner',  $2, 'Reminder: An upcoming viewing for your property', 'sent');",
+        "options": {
+          "queryReplacement": "={{ [$('Get Due Appointments').item.json.tenant_email, $('Get Due Appointments').item.json.owner_email] }}"
+        }
       },
       "id": "node-log-notifications",
       "name": "Log Notifications",
