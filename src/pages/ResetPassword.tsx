@@ -6,10 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, Lock, Check, X, Loader2 } from 'lucide-react';
-import { passwordSchema, PASSWORD_REQUIREMENTS } from '@/security/passwordValidation';
+import { Building2, Lock, Check, Loader2, Eye, EyeOff } from 'lucide-react';
+import { validatePasswordFull } from '@/security/passwordValidation';
+import PasswordStrengthMeter from '@/components/auth/PasswordStrengthMeter';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { z } from 'zod';
 
 type ResetState = 'loading' | 'ready' | 'success' | 'expired';
 
@@ -18,6 +18,7 @@ const ResetPassword = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -56,13 +57,10 @@ const ResetPassword = () => {
       return;
     }
 
-    try {
-      passwordSchema.parse(newPassword);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        toast({ title: 'Weak Password', description: error.errors[0].message, variant: 'destructive' });
-        return;
-      }
+    const strongCheck = await validatePasswordFull(newPassword);
+    if (!strongCheck.valid) {
+      toast({ title: 'Weak Password', description: strongCheck.errors[0], variant: 'destructive' });
+      return;
     }
 
     setIsSubmitting(true);
@@ -124,27 +122,23 @@ const ResetPassword = () => {
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="new-password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     placeholder="Enter new password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 pr-10"
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-3 top-3 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
-                {newPassword && (
-                  <ul className="space-y-1 mt-2">
-                    {PASSWORD_REQUIREMENTS.map((req) => {
-                      const met = req.test(newPassword);
-                      return (
-                        <li key={req.label} className={`flex items-center gap-1.5 text-xs ${met ? 'text-green-600' : 'text-muted-foreground'}`}>
-                          {met ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                          {req.label}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
+                <PasswordStrengthMeter password={newPassword} />
               </div>
 
               <div className="space-y-2">
