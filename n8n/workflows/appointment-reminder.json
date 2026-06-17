@@ -1,0 +1,228 @@
+{
+  "name": "PropertyPal - Appointment Reminder (Scheduled)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-trigger",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT a.appointment_id,\n       to_char(a.appointment_date, 'DD Mon YYYY') AS appointment_date,\n       to_char(a.appointment_time, 'HH12:MI AM') AS appointment_time,\n       t.name  AS tenant_name,\n       t.email AS tenant_email,\n       o.name  AS owner_name,\n       o.email AS owner_email,\n       p.location      AS property_location,\n       p.property_type AS property_type\nFROM public.appointment a\nJOIN public.tenant         t ON t.tenant_id = a.tenant_id\nJOIN public.property_owner o ON o.owner_id  = a.owner_id\nJOIN public.property       p ON p.property_id = a.property_id\nWHERE a.status = 'approved'\n  AND a.reminder_sent_at IS NULL\n  AND a.appointment_date BETWEEN CURRENT_DATE AND CURRENT_DATE + 1;",
+        "options": {}
+      },
+      "id": "node-get-due-appointments",
+      "name": "Get Due Appointments",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_SUPABASE_POSTGRES_CREDENTIAL",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "from",
+              "value": "PropertyPal <noreply@propertypals.org>"
+            },
+            {
+              "name": "to",
+              "value": "={{ $('Get Due Appointments').item.json.tenant_email }}"
+            },
+            {
+              "name": "subject",
+              "value": "Reminder: Your PropertyPal viewing is coming up"
+            },
+            {
+              "name": "html",
+              "value": "=<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px'>\n  <h2 style='color:#7c3aed'>Viewing Reminder</h2>\n  <p>Hi <strong>{{ String($('Get Due Appointments').item.json.tenant_name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}</strong>,</p>\n  <p>This is a friendly reminder about your upcoming property viewing.</p>\n  <div style='background:#f5f3ff;border-left:4px solid #7c3aed;padding:16px;border-radius:4px;margin:16px 0'>\n    <p style='margin:4px 0'><strong>Property:</strong> {{ String($('Get Due Appointments').item.json.property_type).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }} at {{ String($('Get Due Appointments').item.json.property_location).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}</p>\n    <p style='margin:4px 0'><strong>Date:</strong> {{ $('Get Due Appointments').item.json.appointment_date }}</p>\n    <p style='margin:4px 0'><strong>Time:</strong> {{ $('Get Due Appointments').item.json.appointment_time }}</p>\n    <p style='margin:4px 0'><strong>Owner:</strong> {{ String($('Get Due Appointments').item.json.owner_name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}</p>\n  </div>\n  <p>Please arrive on time. If you need to cancel or reschedule, do so from your PropertyPal dashboard.</p>\n  <p style='color:#6b7280;font-size:12px;margin-top:32px'>This is an automated reminder from PropertyPal.</p>\n</div>"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-email-tenant-reminder",
+      "name": "Email Tenant - Reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 200],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_RESEND_CREDENTIAL",
+          "name": "Resend API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "from",
+              "value": "PropertyPal <noreply@propertypals.org>"
+            },
+            {
+              "name": "to",
+              "value": "={{ $('Get Due Appointments').item.json.owner_email }}"
+            },
+            {
+              "name": "subject",
+              "value": "Reminder: An upcoming viewing for your property"
+            },
+            {
+              "name": "html",
+              "value": "=<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px'>\n  <h2 style='color:#7c3aed'>Upcoming Viewing Reminder</h2>\n  <p>Hi <strong>{{ String($('Get Due Appointments').item.json.owner_name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}</strong>,</p>\n  <p>A tenant has an approved viewing for your property coming up.</p>\n  <div style='background:#f5f3ff;border-left:4px solid #7c3aed;padding:16px;border-radius:4px;margin:16px 0'>\n    <p style='margin:4px 0'><strong>Property:</strong> {{ String($('Get Due Appointments').item.json.property_type).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }} at {{ String($('Get Due Appointments').item.json.property_location).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}</p>\n    <p style='margin:4px 0'><strong>Tenant:</strong> {{ String($('Get Due Appointments').item.json.tenant_name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}</p>\n    <p style='margin:4px 0'><strong>Date:</strong> {{ $('Get Due Appointments').item.json.appointment_date }}</p>\n    <p style='margin:4px 0'><strong>Time:</strong> {{ $('Get Due Appointments').item.json.appointment_time }}</p>\n  </div>\n  <p>Please be available to host the viewing. You can manage appointments from your PropertyPal dashboard.</p>\n  <p style='color:#6b7280;font-size:12px;margin-top:32px'>This is an automated reminder from PropertyPal.</p>\n</div>"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-email-owner-reminder",
+      "name": "Email Owner - Reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 200],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_RESEND_CREDENTIAL",
+          "name": "Resend API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.appointment\nSET reminder_sent_at = now()\nWHERE appointment_id = $1;",
+        "options": {
+          "queryReplacement": "={{ [$('Get Due Appointments').item.json.appointment_id] }}"
+        }
+      },
+      "id": "node-mark-reminded",
+      "name": "Mark Reminded",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1120, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_SUPABASE_POSTGRES_CREDENTIAL",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.notifications (type, recipient_type, recipient_email, subject, status)\nVALUES\n  ('appointment_reminder', 'tenant', $1, 'Reminder: Your PropertyPal viewing is coming up', 'sent'),\n  ('appointment_reminder', 'owner',  $2, 'Reminder: An upcoming viewing for your property', 'sent');",
+        "options": {
+          "queryReplacement": "={{ [$('Get Due Appointments').item.json.tenant_email, $('Get Due Appointments').item.json.owner_email] }}"
+        }
+      },
+      "id": "node-log-notifications",
+      "name": "Log Notifications",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1340, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_SUPABASE_POSTGRES_CREDENTIAL",
+          "name": "Supabase Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Get Due Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Due Appointments": {
+      "main": [
+        [
+          {
+            "node": "Email Tenant - Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Tenant - Reminder": {
+      "main": [
+        [
+          {
+            "node": "Email Owner - Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Owner - Reminder": {
+      "main": [
+        [
+          {
+            "node": "Mark Reminded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Reminded": {
+      "main": [
+        [
+          {
+            "node": "Log Notifications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "propertypal" }]
+}
