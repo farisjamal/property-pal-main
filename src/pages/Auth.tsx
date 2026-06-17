@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, Mail, Lock, User, Phone, CheckCircle, Home, Shield } from 'lucide-react';
+import { Building2, Mail, Lock, User, Phone, CheckCircle, Home, Shield, Eye, EyeOff } from 'lucide-react';
 import { z } from 'zod';
 import { encryptData, hashPin } from '@/security/encryption';
 import { logLogin, logFailedLogin } from '@/security/auditLog';
@@ -16,7 +16,6 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import MFAVerify from '@/components/auth/MFAVerify';
 import PasswordStrengthMeter from '@/components/auth/PasswordStrengthMeter';
 import { passwordSchema, validatePasswordFull } from '@/security/passwordValidation';
-import { Eye, EyeOff } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -649,7 +648,7 @@ const Auth = () => {
                       type="button"
                       onClick={() => setShowRegisterPassword((prev) => !prev)}
                       aria-label={showRegisterPassword ? 'Hide password' : 'Show password'}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
