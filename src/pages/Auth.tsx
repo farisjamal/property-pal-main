@@ -15,7 +15,7 @@ import { logLogin, logFailedLogin } from '@/security/auditLog';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import MFAVerify from '@/components/auth/MFAVerify';
 import PasswordStrengthMeter from '@/components/auth/PasswordStrengthMeter';
-import { passwordSchema, validatePasswordFull } from '@/security/passwordValidation';
+import { validatePasswordFull } from '@/security/passwordValidation';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -25,7 +25,9 @@ const loginSchema = z.object({
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
   email: z.string().email('Invalid email address'),
-  password: passwordSchema,
+  // Password content is gated by validatePasswordFull (composition + strength +
+  // breach) in handleRegister — the single source of truth shared with reset.
+  password: z.string(),
   contactNo: z.string().optional(),
   roleId: z.number().min(2).max(3),
   securityPin: z.string().length(6, "Security PIN must be exactly 6 digits").regex(/^\d+$/, "PIN must contain only numbers"),
