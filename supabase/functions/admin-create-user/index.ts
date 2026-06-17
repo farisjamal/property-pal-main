@@ -13,7 +13,7 @@ import { createClient } from "@supabase/supabase-js";
 const ALLOWED_ORIGINS = [
   'http://localhost:8080',
   'http://localhost:5173',
-  ...(Deno.env.get('PRODUCTION_URL') ? [Deno.env.get('PRODUCTION_URL')!] : []),
+  ...(Deno.env.get('PRODUCTION_URL')?.split(',').map((o) => o.trim()).filter(Boolean) ?? []),
 ];
 
 function getCorsHeaders(req: Request) {
