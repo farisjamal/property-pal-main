@@ -14,6 +14,9 @@ import { encryptData, hashPin } from '@/security/encryption';
 import { logLogin, logFailedLogin } from '@/security/auditLog';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import MFAVerify from '@/components/auth/MFAVerify';
+import PasswordStrengthMeter from '@/components/auth/PasswordStrengthMeter';
+import { passwordSchema, validatePasswordFull } from '@/security/passwordValidation';
+import { Eye, EyeOff } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -23,7 +26,7 @@ const loginSchema = z.object({
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
   email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: passwordSchema,
   contactNo: z.string().optional(),
   roleId: z.number().min(2).max(3),
   securityPin: z.string().length(6, "Security PIN must be exactly 6 digits").regex(/^\d+$/, "PIN must contain only numbers"),
@@ -44,6 +47,7 @@ const Auth = () => {
   const [mfaPending, setMfaPending] = useState(false);
   const [pendingRoleId, setPendingRoleId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState('login');
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
   const [registerData, setRegisterData] = useState({
     name: '',
@@ -259,6 +263,19 @@ const Auth = () => {
       // Validate input
       const validated = registerSchema.parse(registerData);
 
+      const strongCheck = await validatePasswordFull(validated.password, {
+        email: validated.email,
+        name: validated.name,
+      });
+      if (!strongCheck.valid) {
+        toast({
+          title: 'Weak Password',
+          description: strongCheck.errors[0],
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
 
       // ENCRYPTION DEMO: Encrypt the contact number
       const encryptedContact = validated.contactNo
@@ -621,14 +638,26 @@ const Auth = () => {
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="register-password"
-                      type="password"
-                      placeholder="At least 6 characters"
+                      type={showRegisterPassword ? 'text' : 'password'}
+                      placeholder="Create a strong password"
                       value={registerData.password}
                       onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                      className="pl-10 h-11"
+                      className="pl-10 pr-10 h-11"
                       required
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowRegisterPassword((prev) => !prev)}
+                      aria-label={showRegisterPassword ? 'Hide password' : 'Show password'}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+                    >
+                      {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
+                  <PasswordStrengthMeter
+                    password={registerData.password}
+                    userInputs={[registerData.email, registerData.name]}
+                  />
                 </div>
 
                 <div className="space-y-1.5">
