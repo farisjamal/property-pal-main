@@ -1,5 +1,12 @@
+# Dependencies and build output
+node_modules/
+dist/
+dist-ssr/
+coverage/
+*.tsbuildinfo
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,40 +14,47 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Environment variables
+# Environment files — only the redacted template is allowed
 .env
 .env.*
 !.env.example
 
-# n8n data (safety measure - actual n8n project is in sibling folder)
+# Local service and deployment state
+.vercel/
+.supabase/
 .n8n/
 
-# Supabase Edge Functions local development secrets
-supabase/functions/.env
+# Credentials and private key material
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+credentials*.json
+secrets*.json
 
-# Editor directories and files
+# Editors and operating systems
+.idea/
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
-.idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# Local scratchpads and planning notes
+# Local AI-agent and planning state
 .claude/
-images.txt
-production-auth.md
-
-# Claude Code project instructions (local-only; do not publish)
+.codex/
+.planning/
 CLAUDE.md
 CLAUDE.local.md
-.vercel
+
+# Local scratch files
+images.txt
+production-auth.md
+*.local

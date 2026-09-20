@@ -8,7 +8,7 @@ This document provides verification steps for the database migration that resolv
 
 ## Migration Details
 
-**File**: [supabase/migrations/20260117100000_fix_registration_and_view.sql](supabase/migrations/20260117100000_fix_registration_and_view.sql)
+**File**: [`20260120000000_fix_audit_log_and_registration.sql`](../supabase/migrations/20260120000000_fix_audit_log_and_registration.sql)
 
 ### Changes Made
 
@@ -27,7 +27,7 @@ This document provides verification steps for the database migration that resolv
 1. Open your Supabase project dashboard
 2. Navigate to **SQL Editor**
 3. Click **New Query**
-4. Copy contents of `supabase/migrations/20260117100000_fix_registration_and_view.sql`
+4. Copy the contents of `supabase/migrations/20260120000000_fix_audit_log_and_registration.sql`
 5. Paste and click **Run**
 6. Verify "Success. No rows returned" message
 
@@ -358,4 +358,4 @@ After successful verification:
 If you encounter issues:
 1. Check Supabase dashboard logs
 2. Review [SECURITY_IMPLEMENTATION.md](SECURITY_IMPLEMENTATION.md) for security architecture
-3. Review [AUDIT_VIEW_SECURITY_FIX.md](AUDIT_VIEW_SECURITY_FIX.md) for related security enhancements
+3. Review [SECURITY_IMPLEMENTATION.md](SECURITY_IMPLEMENTATION.md) for related security enhancements

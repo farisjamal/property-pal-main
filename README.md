@@ -1,87 +1,130 @@
-# PropertyPal — Secure AI-Powered Property Appointment System
+# PropertyPal
 
-A web application for managing property listings, viewings, and appointment bookings
-between property owners and prospective tenants, with an administrative panel for
-oversight and KYC verification.
+PropertyPal is a secure property-viewing and appointment-management web application
+built as a Final Year Project. It connects tenants, property owners, and administrators
+through role-specific dashboards, controlled data access, and automated appointment
+workflows.
 
-> **Final Year Project (FYP) — Evaluation Build**
-> This is a temporary deployment prepared for the evaluation panel. It is **not** the
-> final production release.
+> **Project status:** Academic evaluation build. The public deployment is provided for
+> demonstration and assessment; it is not a commercial production service.
 
----
+## Live application
 
-## 🔗 Live Application
+- Application: <https://www.propertypals.org/>
+- Hosting: Vercel
+- Backend: Supabase
 
-**URL:** https://property-pal-main-pi.vercel.app
+Do not enter real identity documents, financial information, or other sensitive personal
+data into the evaluation deployment.
 
-The application is hosted on Vercel with a Supabase backend. No installation is required —
-simply open the link in any modern browser (Chrome, Edge, or Firefox recommended).
+## Core capabilities
 
----
+| Area | Capabilities |
+| --- | --- |
+| Tenant | Browse properties, request viewings, and manage appointments |
+| Property owner | Manage listings, viewing requests, profile details, and KYC status |
+| Administrator | Manage users and owners, review KYC submissions, and view reports |
+| Security | Role-based access control, Row Level Security, audit logging, MFA support, and password-strength checks |
+| Automation | Optional n8n workflows for appointment notifications and reminders |
 
-## 👥 User Roles
+## Technology stack
 
-The system has three roles, each with its own dashboard:
+- React 18, TypeScript, and Vite
+- Tailwind CSS and shadcn/ui
+- Supabase Auth, PostgreSQL, Row Level Security, and Edge Functions
+- TanStack React Query and React Router
+- Vitest and Testing Library
+- Vercel deployment and optional n8n automation
 
-| Role | What they can do | Dashboard route |
-|------|------------------|-----------------|
-| **Tenant** | Browse properties, book viewing appointments, manage their bookings | `/tenant` |
-| **Property Owner** | List properties, manage appointments, complete KYC verification | `/owner` |
-| **Admin** | Manage users & owners, review KYC submissions, view reports | `/admin` |
+## Architecture
 
----
+```text
+Browser (React/Vite)
+        |
+        v
+Supabase Auth + PostgreSQL + RLS
+        |
+        +--> Edge Functions (privileged server-side operations)
+        |
+        +--> Optional n8n workflows (notifications/reminders)
+```
 
-## 🚀 How to Access (for the Evaluation Panel)
+See [system diagrams](docs/DIAGRAMS.md) and the
+[security implementation summary](docs/SECURITY_IMPLEMENTATION.md) for more detail.
 
-1. Open **https://property-pal-main-pi.vercel.app**
-2. Click **Sign Up / Register** on the authentication page (`/auth`).
-3. Choose a role (Tenant or Property Owner) and complete the registration form.
-4. After registering, **log in** with the same credentials to enter the dashboard.
-5. Explore the features available to your selected role.
+## Local development
 
-> The panel is welcome to create one account per role to evaluate the full experience.
+### Prerequisites
 
----
+- Node.js 18 or newer
+- npm 9 or newer
+- A Supabase project for backend features
+- Supabase CLI only when working with migrations or Edge Functions
+- Docker only when running the optional n8n automation stack
 
-## ⚠️ Important Note on Email Confirmation (Please Read)
+### Setup
 
-**Email confirmation is currently disabled / non-functional in this evaluation build.**
+```bash
+git clone https://github.com/farisjamal/property-pal-main.git
+cd property-pal-main
+npm install
+cp .env.example .env
+npm run dev
+```
 
-The application is designed to send a confirmation email upon registration (and other
-transactional emails such as appointment notifications). However, sending real emails
-requires a configured **SMTP email service**, which involves a paid subscription.
+Fill in `.env` with your own development values. Never commit `.env`, private keys,
+database passwords, service-role keys, or provider API keys.
 
-As this is a student project, I am currently saving toward this cost from my part-time
-job and have **not yet been able to set up the SMTP service**. As a direct result, the
-email-confirmation step after registration is **not available** at this time — no
-confirmation email will be sent.
+### Client environment variables
 
-To ensure the panel can still access and evaluate every feature, registration has been
-configured to allow **immediate login without email confirmation**.
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `VITE_SUPABASE_URL` | Yes | Supabase project URL |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes | Client-safe Supabase publishable key |
+| `VITE_N8N_NEW_BOOKING_WEBHOOK` | No | Optional booking workflow endpoint |
+| `VITE_N8N_STATUS_WEBHOOK` | No | Optional appointment-status workflow endpoint |
 
-🙏 **I kindly ask for the panel's understanding and discretion regarding this limitation.**
-It is purely a temporary financial/infrastructure constraint, not a design or
-implementation flaw. The email-confirmation flow is fully implemented in the codebase and
-will work as intended once the SMTP service is funded and configured.
+Every variable prefixed with `VITE_` is bundled into browser code and must be treated as
+public. Server-only values belong in Supabase Edge Function secrets or the relevant
+provider's secret store; see [SECURITY.md](SECURITY.md).
 
----
+## Commands
 
-## 🛠️ Tech Stack
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the local Vite development server |
+| `npm run build` | Create a production build |
+| `npm run preview` | Preview the production build locally |
+| `npm test` | Run the Vitest suite once |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run lint` | Run ESLint |
+| `npm run check:repo` | Check tracked files for repository-hygiene violations |
 
-- **Frontend:** Vite + React + TypeScript + Tailwind CSS + shadcn/ui
-- **Backend:** Supabase (PostgreSQL, Auth, Edge Functions)
-- **Automation:** n8n (appointment workflows)
-- **Hosting:** Vercel
+## Repository structure
 
----
+```text
+src/                 React application, pages, components, and client integrations
+supabase/functions/  Server-side Edge Functions
+supabase/migrations/ Database schema and security migrations
+n8n/workflows/       Credential-free workflow templates
+docs/                Architecture, security, verification, and implementation records
+public/              Static assets
+```
 
-## 📌 Known Limitations (Evaluation Build)
+## Documentation
 
-- **No transactional emails** — SMTP not yet configured (see note above).
-- This is a temporary build; data may be reset before the final submission.
-- Some automation features (e.g., booking notification emails) depend on the same
-  pending email configuration.
+Start with the [documentation index](docs/README.md). Contributor setup and workflow are
+covered in [CONTRIBUTING.md](CONTRIBUTING.md). Security reporting and secret-handling rules
+are in [SECURITY.md](SECURITY.md).
 
----
+## Deployment
 
-*Thank you for taking the time to evaluate this project.*
+Vercel deploys the `main` branch. Use a short-lived branch and a pull request for every
+change; merge only after the build and repository-hygiene checks pass.
+
+Environment values for the deployed application must be configured in Vercel or Supabase,
+not committed to this repository.
+
+## License
+
+No open-source license has been granted. All rights are reserved by the repository owner.

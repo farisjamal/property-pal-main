@@ -24,7 +24,7 @@ The view was already using `security_invoker = true`, but may need explicit recr
 ## Solution Implemented
 
 ### Migration File
-**File**: [supabase/migrations/20260117100000_fix_registration_and_view.sql](supabase/migrations/20260117100000_fix_registration_and_view.sql)
+**File**: [`20260120000000_fix_audit_log_and_registration.sql`](../supabase/migrations/20260120000000_fix_audit_log_and_registration.sql)
 
 ### Key Changes
 
@@ -194,8 +194,8 @@ After deployment:
 
 - [REGISTRATION_FIX_VERIFICATION.md](REGISTRATION_FIX_VERIFICATION.md) - Complete verification guide
 - [SECURITY_IMPLEMENTATION.md](SECURITY_IMPLEMENTATION.md) - Security architecture
-- [AUDIT_VIEW_SECURITY_FIX.md](AUDIT_VIEW_SECURITY_FIX.md) - Related security fixes
-- [supabase/migrations/20260117000000_audit_log_system.sql](supabase/migrations/20260117000000_audit_log_system.sql) - Original audit system
+- [Security implementation](SECURITY_IMPLEMENTATION.md) - Current security architecture and controls
+- [`20260117000000_audit_log_system.sql`](../supabase/migrations/20260117000000_audit_log_system.sql) - Original audit system
 
 ## Questions & Answers
 

@@ -14,6 +14,20 @@ env:
   NODE_VERSION: "24"
 
 jobs:
+  repository-hygiene:
+    name: Repository hygiene
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Reject tracked local files and common secret formats
+        run: npm run check:repo
+
   # ── Job 1: Code quality (non-blocking) ──────────────────────────────────
   quality:
     name: Lint
