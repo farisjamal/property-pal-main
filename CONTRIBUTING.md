@@ -23,12 +23,25 @@ passwords, encryption keys, or provider API keys into `.env`.
 
 ## Development workflow
 
-Create a short-lived branch from the latest `main`:
+Use the following GitHub flow for every production-bound change:
+
+1. **Issue** — define the problem, acceptance criteria, and production risk.
+2. **Branch** — create a short-lived branch from the latest `main` and include the issue
+   number in the branch name.
+3. **Test** — add or update regression coverage and complete local verification.
+4. **PR** — link the issue and record test evidence in the pull request template.
+5. **Review** — self-review the complete diff and resolve all blocking CI checks. For a
+   sole-maintainer repository, a review comment with findings and evidence is the review
+   record; GitHub does not allow an author to approve their own PR.
+6. **Release** — merge only when the PR is ready for production, then verify the live
+   deployment.
+
+Create the branch after the issue exists:
 
 ```bash
 git switch main
 git pull --ff-only
-git switch -c feature/short-description
+git switch -c test/123-short-description
 ```
 
 Before committing:
@@ -49,6 +62,8 @@ docs(security): clarify secret storage
 ```
 
 Push the branch and open a pull request against `main`. Do not commit directly to `main`.
+Merging to `main` triggers the production Vercel deployment, so pending or failed checks
+block release.
 
 ## Project conventions
 
