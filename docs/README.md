@@ -10,6 +10,7 @@ of truth when a historical document differs from current behaviour.
 | --- | --- |
 | [System diagrams](DIAGRAMS.md) | Entity relationships and user flows |
 | [Security implementation](SECURITY_IMPLEMENTATION.md) | Implemented controls, deployment notes, and verification checks |
+| [Testing guide](TESTING.md) | Automated test scope, auth matrix, and release gate |
 | [Contributing guide](../CONTRIBUTING.md) | Local setup, development workflow, and review checklist |
 | [Security policy](../SECURITY.md) | Vulnerability reporting and secret-handling rules |
 | [n8n setup](../n8n/SETUP.md) | Optional event-driven workflow setup |

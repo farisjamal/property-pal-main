@@ -48,7 +48,26 @@ jobs:
         run: npm run lint
         continue-on-error: true   # 53 pre-existing errors — informational only
 
-  # ── Job 2: Build (the hard gate — must pass before merge) ───────────────
+  # ── Job 2: Tests (blocking) ──────────────────────────────────────────────
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test suite
+        run: npm test
+
+  # ── Job 3: Build (blocking) ──────────────────────────────────────────────
   build:
     name: Build
     runs-on: ubuntu-latest
